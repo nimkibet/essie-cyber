@@ -106,7 +106,7 @@ function renderLedger() {
                             <td class="py-1.5 px-6 text-slate-500">${new Date(e.timestamp).toLocaleTimeString()}</td>
                             <td class="py-1.5 px-4 text-center">${e.calculated_qty}</td>
                             <td class="py-1.5 px-4 text-right font-semibold">Ksh ${e.total_charged.toFixed(2)}</td>
-                            <td class="py-1.5 px-4 text-center">${e.payment_method}</td>
+                            <td class="py-1.5 px-4 text-center"><button onclick="togglePayment('${e.id}', '${e.payment_method}')" class="px-2 py-0.5 rounded text-xs font-bold ${e.payment_method.toLowerCase() === 'mpesa' ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200' : 'bg-blue-100 text-blue-700 hover:bg-blue-200'}" title="Click to change">${e.payment_method.toUpperCase()}</button></td>
                             <td class="py-1.5 px-4 text-center">
                                 <button onclick="voidSale('${e.id}')" class="text-red-500 hover:text-red-700 font-bold text-base leading-none" title="Void this entry">&times;</button>
                             </td>
@@ -441,6 +441,19 @@ loadData();
 
 
 
+
+
+window.togglePayment = async (id, currentMethod) => {
+    const newMethod = currentMethod.toLowerCase() === 'cash' ? 'mpesa' : 'cash';
+    if (!confirm(`Change payment method to ${newMethod.toUpperCase()}?`)) return;
+    try {
+        const { error } = await supabase.from('sales_log').update({ payment_method: newMethod }).eq('id', id);
+        if (error) throw error;
+        fetchTodaysSales();
+    } catch(err) {
+        alert('Error updating payment: ' + err.message);
+    }
+};
 
 window.voidSale = async (id) => {
     if (!confirm('Are you sure you want to void this entry?')) return;
