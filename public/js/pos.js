@@ -1,6 +1,20 @@
 import { supabase, currentUser, requireAuth } from './supabaseClient.js';
 requireAuth();
 let inventory = [], customers = [], todaysSales = [];
+
+window.setQuickPayUI = function(method) {
+    quickPay = method;
+    const btnM = document.getElementById('quick-pay-mpesa');
+    const btnC = document.getElementById('quick-pay-cash');
+    if (quickPay === 'M-Pesa') {
+        btnM.className = 'flex-1 bg-emerald-700 text-white py-2 rounded font-medium shadow transition';
+        btnC.className = 'flex-1 bg-gray-200 text-gray-700 py-2 rounded font-medium transition';
+    } else {
+        btnC.className = 'flex-1 bg-blue-600 text-white py-2 rounded font-medium shadow transition';
+        btnM.className = 'flex-1 bg-gray-200 text-gray-700 py-2 rounded font-medium transition';
+    }
+};
+
 let activeQuick = "Print / Copy", quickPay = "M-Pesa", mainPay = "M-Pesa";
 
 async function loadData() {
@@ -121,15 +135,17 @@ window.toggleLedgerGroup = (key) => {
 };
 
 document.querySelectorAll('.quick-srv-btn').forEach(b => b.addEventListener('click', e => { activeQuick = e.target.dataset.name; }));
-document.getElementById('quick-pay-mpesa').addEventListener('click', () => quickPay = 'M-Pesa');
-document.getElementById('quick-pay-cash').addEventListener('click', () => quickPay = 'Cash');
+
+document.getElementById('quick-pay-mpesa').addEventListener('click', () => window.setQuickPayUI('M-Pesa'));
+document.getElementById('quick-pay-cash').addEventListener('click', () => window.setQuickPayUI('Cash'));
+
 
 document.getElementById('quick-log-btn').addEventListener('click', async () => {
     const amt = parseFloat(document.getElementById('quick-amount').value); if(!amt) return;
     let item = inventory.find(i => i.name === activeQuick);
     if (!item) { const {data} = await supabase.from('inventory').insert([{name: activeQuick, type: 'variable', selling_price: 0, is_service: true}]).select().single(); item = data; inventory.push(item); }
     await supabase.from('sales_log').insert([{item_id: item.id, total_charged: amt, calculated_qty: 1, calculated_profit: amt, cashier_id: currentUser.id, payment_method: quickPay.toLowerCase().replace('-', '')}]);
-    document.getElementById('quick-amount').value = ''; fetchTodaysSales(); setTimeout(()=>document.getElementById('quick-amount').focus(), 100);
+    document.getElementById('quick-amount').value = ''; if(window.setQuickPayUI) window.setQuickPayUI('M-Pesa'); fetchTodaysSales(); setTimeout(()=>document.getElementById('quick-amount').focus(), 100);
 });
 
 
@@ -575,7 +591,7 @@ quickAmt.addEventListener('keydown', (e) => {
         // Update global quickPay state
         
         
-        setQuickPayUI(e.shiftKey ? 'Cash' : 'M-Pesa');
+        window.setQuickPayUI(e.shiftKey ? 'Cash' : 'M-Pesa');
         
         // Trigger save
         document.getElementById('quick-log-btn').click();
