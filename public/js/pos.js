@@ -448,15 +448,20 @@ document.getElementById('pos-qty').addEventListener('input', () => {
             bc = kyo * parseFloat(document.getElementById('kyo-cost-pp').value); 
         }
         
-        await supabase.from('sales_log').insert([{
-            item_id: item.id, 
-            total_charged: amt, 
-            calculated_qty: qty, 
-            calculated_profit: amt - (bc*qty), 
-            cashier_id: currentUser.id, 
-            payment_method: e.target.id.includes('mpesa') ? 'mpesa' : 'cash', 
-            kyocera_pages: kyo
-        }]);
+        const logPayload = {
+              item_id: item.id, 
+              total_charged: amt, 
+              calculated_qty: qty, 
+              calculated_profit: amt - (bc*qty), 
+              cashier_id: currentUser.id, 
+              payment_method: e.target.id.includes('mpesa') ? 'mpesa' : 'cash', 
+              kyocera_pages: kyo
+          };
+          
+          const qRes = await insertSaleWithOfflineSupport(supabase, logPayload);
+          if (qRes.offline) {
+              alert('No internet — sale saved locally and will sync when back online.');
+          }
         
         // Reset form
         document.getElementById('pos-item-search').value = '';
@@ -641,8 +646,15 @@ async function processReceipt(paymentMethod) {
             kyocera_pages: i.kyocera_pages
         }));
         
-        const { error } = await supabase.from('sales_log').insert(logs);
-        if(error) throw error;
+        for (const log of logs) {
+            const qRes = await insertSaleWithOfflineSupport(supabase, log);
+            if (qRes.offline) {
+                // If one is offline, all will be offline. We can just alert once at the end.
+            }
+        }
+        if (!navigator.onLine) {
+            alert('No internet — receipt sales saved locally and will sync when back online.');
+        }
         
         generatePDF('receipt', paymentMethod);
         
