@@ -1,6 +1,7 @@
 import { supabase, currentUser, requireAuth } from './supabaseClient.js';
 requireAuth();
-if(currentUser.role !== 'admin') window.location.href = '/pos.html';
+// Role guard - only redirect non-admins after session confirmed
+if(currentUser && currentUser.role !== 'admin') window.location.href = '/pos.html';
 
 let currentSalesData = [];
 let periodStr = 'today';
