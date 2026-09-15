@@ -17,10 +17,16 @@
         .pin-dot { transition: all 0.2s ease; }
     </style>
 
+    
     <style>
         body { animation: fadeIn 0.2s ease-in-out; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(2px); } to { opacity: 1; transform: translateY(0); } }
+        /* Hide number spinners */
+        input[type=number]::-webkit-inner-spin-button, 
+        input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+        input[type=number] { -moz-appearance: textfield; }
     </style>
+
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script></head>
 <body class="bg-gray-100 h-screen flex flex-col font-sans text-gray-800 overflow-hidden">
@@ -92,7 +98,7 @@
                     <div class="grid grid-cols-2 gap-4 mb-4">
                         <div>
                             <label class="block text-sm font-semibold mb-1">Quantity</label>
-                            <div class="flex"><button id="qty-minus" class="bg-gray-200 px-3 py-2 rounded-l">-</button><input type="number" id="pos-qty" class="w-full text-center border-y py-2 font-bold" value="1"><button id="qty-plus" class="bg-gray-200 px-3 py-2 rounded-r">+</button></div>
+                            <div class="flex"><button id="qty-minus" class="bg-gray-200 px-2 py-1 rounded-l text-sm font-bold hover:bg-gray-300">-</button><input type="number" id="pos-qty" class="w-full text-center border-y py-1 text-sm font-bold focus:outline-none" value="1"><button id="qty-plus" class="bg-gray-200 px-2 py-1 rounded-r text-sm font-bold hover:bg-gray-300">+</button></div>
                         </div>
                         <div>
                             <label class="block text-sm font-semibold text-blue-600 mb-1">Total (Ksh)</label>
@@ -179,7 +185,6 @@
                                 <input type="hidden" id="qres-item-id">
                             </div>
                             <input type="number" id="qres-qty" placeholder="Qty opened" value="1" class="w-full border border-purple-200 rounded px-2 py-1.5 text-sm mb-2 focus:outline-none focus:ring-1 focus:ring-purple-400">
-                            <input type="number" id="qres-cost" placeholder="Cost (Ksh)" class="w-full border border-purple-200 rounded px-2 py-1.5 text-sm mb-2 focus:outline-none focus:ring-1 focus:ring-purple-400">
                             <button id="btn-open-resource" class="w-full bg-purple-600 hover:bg-purple-700 text-white py-1.5 rounded text-sm font-bold">Open Resource</button>
                         </div>
                     </div>

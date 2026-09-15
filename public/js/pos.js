@@ -583,6 +583,39 @@ document.getElementById('btn-open-resource').addEventListener('click', async () 
     }
 });
 
+
+// --- QTY +/- BUTTONS ---
+const qtyInput = document.getElementById('pos-qty');
+const totalInput = document.getElementById('pos-total');
+const btnMinus = document.getElementById('qty-minus');
+const btnPlus = document.getElementById('qty-plus');
+
+function updatePosTotal() {
+    const itemId = document.getElementById('pos-item-id').value;
+    if (!itemId) return;
+    const item = inventory.find(i => i.id === itemId);
+    if (!item) return;
+    let q = parseFloat(qtyInput.value) || 0;
+    if(q < 0) q = 0;
+    totalInput.value = item.selling_price * q;
+}
+
+if (btnMinus && btnPlus) {
+    btnMinus.addEventListener('click', (e) => {
+        e.preventDefault();
+        let val = parseFloat(qtyInput.value) || 0;
+        if (val > 1) { qtyInput.value = val - 1; updatePosTotal(); }
+    });
+    btnPlus.addEventListener('click', (e) => {
+        e.preventDefault();
+        let val = parseFloat(qtyInput.value) || 0;
+        qtyInput.value = val + 1; updatePosTotal();
+    });
+    qtyInput.addEventListener('input', updatePosTotal);
+}
+
+// Ensure pos-qty handles its own updates when manually typed
+
 // --- KEYBOARD SHORTCUTS ---
 const quickAmt = document.getElementById('quick-amount');
 quickAmt.addEventListener('keydown', (e) => {
