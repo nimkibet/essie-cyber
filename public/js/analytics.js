@@ -146,6 +146,7 @@ function updateCharts(userRevenue, methodRevenue, items) {
 }
 
 document.getElementById('ana-period').addEventListener('change', load);
+document.getElementById('chk-include-bulk').addEventListener('change', load);
 
 document.getElementById('btn-dl-report').addEventListener('click', () => {
     if (currentSalesData.length === 0) return alert('No data to generate report.');

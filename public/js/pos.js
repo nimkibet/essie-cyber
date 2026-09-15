@@ -17,6 +17,34 @@ window.setQuickPayUI = function(method) {
 
 let activeQuick = "Print / Copy", quickPay = "M-Pesa", mainPay = "M-Pesa";
 
+
+let activeBindingMaterial = null;
+let bindingMaterials = [];
+
+function renderBindingOptions() {
+    const container = document.getElementById('binding-options-container');
+    if (!container) return;
+    
+    // Find rings and tapes
+    bindingMaterials = inventory.filter(i => i.name.toLowerCase().includes('ring') || i.name.toLowerCase().includes('tape binding'));
+    
+    if (bindingMaterials.length === 0) {
+        container.innerHTML = '<span class="text-xs text-purple-600 font-bold">No rings or tape found in inventory</span>';
+        return;
+    }
+    
+    if (!activeBindingMaterial) activeBindingMaterial = bindingMaterials[0];
+    
+    container.innerHTML = bindingMaterials.map(m => `
+        <button onclick="window.setBindingMaterial('${m.id}')" class="px-2 py-1 rounded text-xs font-bold ${activeBindingMaterial.id === m.id ? 'bg-purple-600 text-white shadow' : 'bg-white text-purple-700 border border-purple-200'}">${m.name} (${m.selling_price})</button>
+    `).join('');
+}
+
+window.setBindingMaterial = function(id) {
+    activeBindingMaterial = bindingMaterials.find(m => m.id === id);
+    renderBindingOptions();
+};
+
 // --- LINKED RESOURCES (BINDING) ---
 async function deductBindingMaterials(qty) {
     const embossed = inventory.find(i => i.name === 'EMBOSSED');
@@ -162,6 +190,15 @@ window.setQuickServiceUI = function(name) {
             b.className = 'quick-srv-btn bg-gray-100 text-gray-700 py-2 rounded text-sm font-medium hover:bg-gray-200 transition-all';
         }
     });
+    
+    const bindingContainer = document.getElementById('binding-options-container');
+    if (bindingContainer) {
+        if (name === 'Binding Service') {
+            bindingContainer.classList.remove('hidden');
+        } else {
+            bindingContainer.classList.add('hidden');
+        }
+    }
 };
 
 document.querySelectorAll('.quick-srv-btn').forEach(b => {

@@ -57,10 +57,13 @@
                 <div class="bg-white rounded-xl shadow border border-gray-200 p-5">
                     <h2 class="text-lg font-bold text-gray-800 mb-3">Quick Add</h2>
                     <div class="grid grid-cols-3 gap-2 mb-4">
-                        <button class="quick-srv-btn bg-blue-600 text-white py-2 rounded text-sm font-medium" data-name="Print / Copy">Print / Copy</button>
-                        <button class="quick-srv-btn bg-gray-100 text-gray-700 py-2 rounded text-sm font-medium" data-name="Typesetting">Typesetting</button>
-                        <button class="quick-srv-btn bg-gray-100 text-gray-700 py-2 rounded text-sm font-medium" data-name="Binding Service">Binding</button>
-                    </div>
+                          <button class="quick-srv-btn bg-blue-600 text-white py-2 rounded text-sm font-medium" data-name="Print / Copy">Print / Copy</button>
+                          <button class="quick-srv-btn bg-gray-100 text-gray-700 py-2 rounded text-sm font-medium" data-name="Typesetting">Typesetting</button>
+                          <button class="quick-srv-btn bg-gray-100 text-gray-700 py-2 rounded text-sm font-medium" data-name="Binding Service">Binding</button>
+                      </div>
+                      <div id="binding-options-container" class="hidden flex flex-wrap gap-2 mb-4 p-2 bg-purple-50 border border-purple-100 rounded-lg">
+                          <!-- Filled dynamically by JS -->
+                      </div>
                     <div class="flex gap-2 mb-4">
                         <button id="quick-pay-mpesa" class="flex-1 bg-emerald-700 text-white py-2 rounded font-medium">📱 M-Pesa</button>
                         <button id="quick-pay-cash" class="flex-1 bg-gray-200 text-gray-700 py-2 rounded font-medium">💵 Cash</button>

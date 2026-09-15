@@ -44,7 +44,7 @@
             <div><h1 class="text-2xl font-bold">Analytics</h1></div>
             <div class="flex items-center gap-3">
                 <button id="btn-dl-report" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-4 py-2 rounded-lg shadow transition-colors">Download PDF Report</button>
-                <select id="ana-period" class="bg-slate-100 border rounded px-4 py-2 font-semibold">
+                <label class="flex items-center space-x-2 text-sm font-semibold text-slate-700 bg-white px-3 py-1.5 rounded-lg border border-slate-300 shadow-sm cursor-pointer hover:bg-slate-50 transition-colors mr-2"><input type="checkbox" id="chk-include-bulk" class="form-checkbox h-4 w-4 text-blue-600 rounded"><span>Include Bulk/Fixed Expenses</span></label><select id="ana-period" class="bg-slate-100 border rounded px-4 py-2 font-semibold">
                     <option value="today">Today</option>
                     <option value="month">This Month</option>
                 </select>
