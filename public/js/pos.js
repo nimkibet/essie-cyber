@@ -69,6 +69,7 @@ async function deductBindingMaterials(qty) {
 async function loadData() {
     const {data:inv} = await supabase.from('inventory').select('*').order('name'); const {data:cust} = await supabase.from('customers').select('*').order('name');
     inventory = inv || []; customers = cust || []; console.log('DEBUG: Loaded inventory length:', inventory.length);
+    renderBindingOptions(); // populate binding submenu now that inventory is ready
     
         const csel = document.getElementById('pos-customer'); csel.innerHTML = '<option value="">Walk-in</option>';
     customers.forEach(c => csel.innerHTML += `<option value="${c.id}">${c.name}</option>`);
