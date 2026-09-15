@@ -1,4 +1,5 @@
 import { supabase, currentUser, requireAuth } from './supabaseClient.js';
+import { insertSaleWithOfflineSupport, syncOfflineSales } from './offlineQueue.js';
 requireAuth();
 let inventory = [], customers = [], todaysSales = [];
 
@@ -985,4 +986,13 @@ function resetFocusTimer() {
 document.addEventListener('mousemove', resetFocusTimer);
 document.addEventListener('keydown', resetFocusTimer);
 document.addEventListener('click', resetFocusTimer);
+// --- OFFLINE SYNC LISTENER ---
+window.addEventListener('online', async () => {
+    console.log('[Network] Back online, syncing sales...');
+    const count = await syncOfflineSales(supabase);
+    if (count > 0) {
+        // Refresh the ledger
+        fetchTodaysSales();
+    }
+});
 resetFocusTimer(); // Init
