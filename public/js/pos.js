@@ -655,3 +655,17 @@ setTimeout(() => { document.getElementById('quick-amount').focus(); }, 500);
 // Set focus back after logging a quick sale
 const originalQuickLogCode = "document.getElementById('quick-amount').value = ''; fetchTodaysSales();";
 const newQuickLogCode = "document.getElementById('quick-amount').value = ''; fetchTodaysSales(); setTimeout(()=>document.getElementById('quick-amount').focus(), 100);";
+\n
+// --- AUTO-FOCUS ON INACTIVITY ---
+let focusTimer;
+function resetFocusTimer() {
+    clearTimeout(focusTimer);
+    focusTimer = setTimeout(() => {
+        const quickAmt = document.getElementById('quick-amount');
+        if (quickAmt) quickAmt.focus();
+    }, 60 * 1000); // 1 minute
+}
+document.addEventListener('mousemove', resetFocusTimer);
+document.addEventListener('keydown', resetFocusTimer);
+document.addEventListener('click', resetFocusTimer);
+resetFocusTimer(); // Init
