@@ -655,7 +655,7 @@ setTimeout(() => { document.getElementById('quick-amount').focus(); }, 500);
 // Set focus back after logging a quick sale
 const originalQuickLogCode = "document.getElementById('quick-amount').value = ''; fetchTodaysSales();";
 const newQuickLogCode = "document.getElementById('quick-amount').value = ''; fetchTodaysSales(); setTimeout(()=>document.getElementById('quick-amount').focus(), 100);";
-\n
+
 // --- AUTO-FOCUS ON INACTIVITY ---
 let focusTimer;
 function resetFocusTimer() {
