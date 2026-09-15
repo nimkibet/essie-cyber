@@ -818,9 +818,9 @@ document.getElementById('btn-log-expense').addEventListener('click', async () =>
     
     try {
         const payload = {
-            period: new Date().toISOString().slice(0, 7),
-            other_fixed: amt,
-            rent: 0, electricity: 0, wifi_internet: 0
+            amount: amt,
+            description: desc,
+            user_id: currentUser.id
         };
         const res = await insertExpenseWithOfflineSupport(supabase, payload, desc);
         

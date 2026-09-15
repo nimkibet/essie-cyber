@@ -102,7 +102,7 @@ export async function insertExpenseWithOfflineSupport(supabase, payload, desc) {
         console.log('[Offline] Expense queued locally:', payload);
         return { offline: true };
     }
-    const { data, error } = await supabase.from('overhead_entries').insert([payload]).select().single();
+    const { data, error } = await supabase.from('expenses').insert([payload]).select().single();
     if (error) throw error;
     return { data };
 }
@@ -123,7 +123,7 @@ export async function syncOfflineExpenses(supabase) {
     for (const exp of pending) {
         const { id, queued_at, _offline_desc, ...payload } = exp;
         try {
-            const { error } = await supabase.from('overhead_entries').insert([payload]);
+            const { error } = await supabase.from('expenses').insert([payload]);
             if (!error) {
                 await new Promise((resolve, reject) => {
                     const tx = db.transaction('pending_expenses', 'readwrite');
