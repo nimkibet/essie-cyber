@@ -674,25 +674,27 @@ document.querySelectorAll('.exp-tab').forEach(btn => {
         
         // Reset tabs UI
         document.querySelectorAll('.exp-tab').forEach(b => {
-            b.className = 'exp-tab flex-1 text-xs py-1 rounded font-bold bg-slate-100 text-slate-600 transition-colors';
+            b.className = 'exp-tab flex-1 text-xs py-1 rounded font-bold bg-slate-200 text-slate-600 transition-colors';
         });
         e.target.className = 'exp-tab flex-1 text-xs py-1 rounded font-bold bg-slate-700 text-white transition-colors';
 
         // Toggle fields
         const wageFields = document.getElementById('exp-wage-fields');
-        
+        const descField = document.getElementById('exp-desc');
         const amtField = document.getElementById('exp-amount');
         
         wageFields.classList.add('hidden');
-        
+        if(descField) descField.classList.add('hidden');
         
         if (type === 'wage') {
             wageFields.classList.remove('hidden');
-            amtField.placeholder = "Base Wage (Ksh)";
+            amtField.placeholder = "Wage Amount (Ksh)";
         } else if (type === 'other') {
-            
-            
-            
+            if(descField) {
+                descField.classList.remove('hidden');
+                descField.placeholder = "Description...";
+            }
+            amtField.placeholder = "Amount (Ksh)";
         } else {
             amtField.placeholder = "Amount (Ksh)";
         }
@@ -707,12 +709,12 @@ document.getElementById('btn-log-expense').addEventListener('click', async () =>
     else if (activeExpenseTab === 'transport') desc = 'Transport';
     else if (activeExpenseTab === 'wage') {
         const user = document.getElementById('exp-wage-user').value;
-        const extra = parseFloat(document.getElementById('exp-wage-extra').value) || 0;
         if (!user) return alert('Select a cashier for the wage log.');
         desc = `Wage - ${user}`;
-        if (extra > 0) desc += ` (+${extra} extra)`;
-        if (extra < 0) desc += ` (${extra} deduction)`;
-        amt = (amt || 0) + extra;
+    }
+    else if (activeExpenseTab === 'other') {
+        const descField = document.getElementById('exp-desc');
+        desc = descField ? descField.value.trim() : 'Other';
     }
 
     if (!desc || isNaN(amt) || amt <= 0) return alert('Enter valid details and amount.');
@@ -729,9 +731,9 @@ document.getElementById('btn-log-expense').addEventListener('click', async () =>
         }]);
         if (error) throw error;
         
-        
+        const descField = document.getElementById('exp-desc');
+        if(descField) descField.value = '';
         document.getElementById('exp-amount').value = '';
-        document.getElementById('exp-wage-extra').value = '';
         alert('Expense logged: ' + desc + ' - Ksh ' + amt);
     } catch(err) {
         alert('Error: ' + err.message);
