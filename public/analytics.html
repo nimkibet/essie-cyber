@@ -148,5 +148,19 @@
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script type="module" src="/js/analytics.js"></script>
+
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/sw.js')
+                    .then(reg => {
+                        console.log('[SW] Registered, scope:', reg.scope);
+                        // Check for updates when the page loads
+                        reg.update();
+                    })
+                    .catch(err => console.warn('[SW] Registration failed:', err));
+            });
+        }
+    </script>
 </body>
 </html>
