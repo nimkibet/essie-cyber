@@ -15,49 +15,76 @@ async function load() {
     const ym = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
     let dateFilter = periodStr === 'month' ? ym : d.toISOString().split('T')[0];
 
+    // 1. Fetch Sales
     let q = supabase.from('sales_log').select('*, inventory(name), users!sales_log_cashier_id_fkey(username)').eq('is_voided', false);
     if (periodStr === 'month') q = q.gte('timestamp', `${dateFilter}-01T00:00:00Z`);
     else q = q.gte('timestamp', `${dateFilter}T00:00:00Z`);
 
-    const { data: s } = await q;
+    // 2. Fetch Opened Resources
+    let resQ = supabase.from('resources').select('cost, status');
+    if (periodStr === 'month') resQ = resQ.gte('opened_at', `${dateFilter}-01T00:00:00Z`);
+    else resQ = resQ.gte('opened_at', `${dateFilter}T00:00:00Z`);
+
+    // 3. Fetch Logged Expenses (Overheads)
+    // overhead_entries stores period as 'YYYY-MM'. If 'today', we look at created_at
+    let expQ = supabase.from('overhead_entries').select('other_fixed, rent, electricity, wifi_internet, created_at');
+    if (periodStr === 'month') expQ = expQ.eq('period', ym);
+    else expQ = expQ.gte('created_at', `${dateFilter}T00:00:00Z`);
+
+    const [ {data: s}, {data: resData}, {data: expData} ] = await Promise.all([q, resQ, expQ]);
+    
     currentSalesData = s || [];
+    const resources = resData || [];
+    const expenses = expData || [];
+
+    // Calculate Expenses
+    let totalExpenses = 0;
+    resources.forEach(r => { totalExpenses += (r.cost || 0); });
+    
+    expenses.forEach(e => {
+        if (periodStr === 'month') {
+            totalExpenses += (e.other_fixed || 0) + (e.rent || 0) + (e.electricity || 0) + (e.wifi_internet || 0);
+        } else {
+            // For 'today', usually rent/electricity isn't factored per day, but 'other_fixed' (quick expenses) should be.
+            totalExpenses += (e.other_fixed || 0);
+        }
+    });
 
     document.getElementById('kpi-tx').innerText = currentSalesData.length;
-    let rev = 0, prof = 0;
+    let rev = 0, grossProf = 0;
     
-    // Aggregations
     const items = {};
     const userRevenue = {};
     const methodRevenue = { cash: 0, mpesa: 0 };
 
     currentSalesData.forEach(x => {
         rev += x.total_charged;
-        prof += x.calculated_profit;
+        grossProf += x.calculated_profit;
         
-        // Item aggregations
         const n = x.inventory?.name || 'Unknown';
         if (!items[n]) items[n] = 0;
         items[n] += x.calculated_qty;
 
-        // User aggregations
         const user = x.users?.username || 'Unknown';
         if (!userRevenue[user]) userRevenue[user] = 0;
         userRevenue[user] += x.total_charged;
         
-        // Method aggregations
         if (x.payment_method === 'cash') methodRevenue.cash += x.total_charged;
         else if (x.payment_method === 'mpesa') methodRevenue.mpesa += x.total_charged;
     });
 
-    document.getElementById('kpi-rev').innerText = `Ksh ${rev.toLocaleString()}`;
-    document.getElementById('kpi-profit').innerText = `Ksh ${prof.toLocaleString()}`;
+    const netProfit = grossProf - totalExpenses;
+
+    document.getElementById('kpi-rev').innerText = `Ksh ${rev.toLocaleString(undefined, {maximumFractionDigits:0})}`;
+    document.getElementById('kpi-exp').innerText = `Ksh ${totalExpenses.toLocaleString(undefined, {maximumFractionDigits:0})}`;
+    document.getElementById('kpi-profit').innerText = `Ksh ${netProfit.toLocaleString(undefined, {maximumFractionDigits:0})}`;
 
     // Update User Leaderboard Table
     const sortedUsers = Object.entries(userRevenue).sort((a, b) => b[1] - a[1]);
     const utb = document.getElementById('user-tbody');
     utb.innerHTML = '';
     sortedUsers.forEach(u => {
-        utb.innerHTML += `<tr class="border-b border-slate-100 hover:bg-slate-50"><td class="py-2 px-3 font-medium text-slate-700 capitalize">${u[0]}</td><td class="py-2 px-3 text-right font-bold text-slate-600">Ksh ${u[1].toLocaleString()}</td></tr>`;
+        utb.innerHTML += `<tr class="border-b border-slate-100 hover:bg-slate-50"><td class="py-2 px-3 font-medium text-slate-700 capitalize">${u[0]}</td><td class="py-2 px-3 text-right font-bold text-slate-600">Ksh ${u[1].toLocaleString(undefined, {maximumFractionDigits:0})}</td></tr>`;
     });
 
     // Update Charts
@@ -67,7 +94,6 @@ async function load() {
 function updateCharts(userRevenue, methodRevenue, items) {
     const sortedItems = Object.entries(items).sort((a, b) => b[1] - a[1]).slice(0, 10);
     
-    // User Chart (Bar)
     const userCtx = document.getElementById('userChart');
     if (userChartInstance) userChartInstance.destroy();
     userChartInstance = new Chart(userCtx, {
@@ -84,7 +110,6 @@ function updateCharts(userRevenue, methodRevenue, items) {
         options: { responsive: true, maintainAspectRatio: false }
     });
 
-    // Method Chart (Doughnut)
     const methodCtx = document.getElementById('methodChart');
     if (methodChartInstance) methodChartInstance.destroy();
     methodChartInstance = new Chart(methodCtx, {
@@ -93,13 +118,12 @@ function updateCharts(userRevenue, methodRevenue, items) {
             labels: ['M-Pesa', 'Cash'],
             datasets: [{
                 data: [methodRevenue.mpesa, methodRevenue.cash],
-                backgroundColor: ['#10b981', '#3b82f6'] // Emerald for mpesa, Blue for cash
+                backgroundColor: ['#10b981', '#3b82f6']
             }]
         },
         options: { responsive: true, maintainAspectRatio: false }
     });
 
-    // Items Chart (Bar)
     const itemsCtx = document.getElementById('itemsChart');
     if (itemsChartInstance) itemsChartInstance.destroy();
     itemsChartInstance = new Chart(itemsCtx, {
@@ -114,7 +138,7 @@ function updateCharts(userRevenue, methodRevenue, items) {
             }]
         },
         options: { 
-            indexAxis: 'y', // horizontal bar chart is better for item names
+            indexAxis: 'y',
             responsive: true, 
             maintainAspectRatio: false 
         }
@@ -123,14 +147,12 @@ function updateCharts(userRevenue, methodRevenue, items) {
 
 document.getElementById('ana-period').addEventListener('change', load);
 
-// PDF Generation
 document.getElementById('btn-dl-report').addEventListener('click', () => {
     if (currentSalesData.length === 0) return alert('No data to generate report.');
     
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF();
     
-    // Header
     doc.setFillColor(30, 41, 59);
     doc.rect(0, 0, 210, 30, 'F');
     doc.setTextColor(255, 255, 255);
@@ -143,9 +165,11 @@ document.getElementById('btn-dl-report').addEventListener('click', () => {
     const reportTitle = periodStr === 'today' ? "Daily Sales Report" : "Monthly Sales Report";
     doc.text(`${reportTitle} - ${new Date().toLocaleDateString()}`, 130, 20);
     
-    // Summary Metrics
-    let rev = 0, prof = 0;
-    currentSalesData.forEach(x => { rev += x.total_charged; prof += x.calculated_profit; });
+    let rev = 0, grossProf = 0;
+    currentSalesData.forEach(x => { rev += x.total_charged; grossProf += x.calculated_profit; });
+    
+    // We don't recalculate expenses here, we could re-query but for simplicity we rely on UI state for now, 
+    // or we just show gross profit in the PDF to keep it simple. Let's just show Gross Profit in the PDF.
     
     doc.setTextColor(50, 50, 50);
     doc.setFontSize(14);
@@ -156,9 +180,8 @@ document.getElementById('btn-dl-report').addEventListener('click', () => {
     doc.setFont("helvetica", "normal");
     doc.text(`Total Transactions: ${currentSalesData.length}`, 14, 55);
     doc.text(`Gross Revenue: Ksh ${rev.toLocaleString()}`, 14, 62);
-    doc.text(`Estimated Profit: Ksh ${prof.toLocaleString()}`, 14, 69);
+    doc.text(`Gross Profit: Ksh ${grossProf.toLocaleString()}`, 14, 69);
     
-    // Table of transactions
     const tableData = currentSalesData.map(s => [
         new Date(s.timestamp).toLocaleTimeString(),
         s.inventory?.name || 'Unknown',
