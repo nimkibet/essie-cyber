@@ -77,6 +77,7 @@ async function load() {
         </tr>
         `;
     });
+    tb.innerHTML = html;
 }
 
 window.toggleEdit = (id) => {
