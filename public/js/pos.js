@@ -86,6 +86,9 @@ window.setBindingGroup = function(id) {
 
 window.selectBindingItem = function(itemId) {
     activeBindingItem = inventory.find(i => i.id === itemId);
+    if (activeBindingItem) {
+        document.getElementById('quick-amount').value = activeBindingItem.selling_price;
+    }
     renderBindingOptions();
 };
 
@@ -234,6 +237,17 @@ window.setQuickServiceUI = function(name) {
     if (bindingContainer) {
         if (name === 'Binding Service') {
             bindingContainer.classList.remove('hidden');
+            // Re-render so the active item gets highlighted
+            renderBindingOptions();
+            // If a ring is already selected, fill the amount; otherwise auto-pick the first
+            if (!activeBindingItem) {
+                // Try first item in active group, or first spiral
+                const firstId = activeBindingGroup?.items?.[0]?.id
+                    || inventory.find(i => { const n = i.name.toLowerCase(); return n.includes('spiral') && !n.includes('a5'); })?.id;
+                if (firstId) window.selectBindingItem(firstId);
+            } else {
+                document.getElementById('quick-amount').value = activeBindingItem.selling_price;
+            }
         } else {
             bindingContainer.classList.add('hidden');
         }
