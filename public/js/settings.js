@@ -106,11 +106,11 @@ function renderGroups() {
                 ondrop="dropToGroup(event, '${g.id}')">
                 ${g.items.length === 0 ? '<span class="text-xs text-slate-300 italic">Drop spirals here</span>' : ''}
                 ${g.items.map(item => `
-                    <div class="item-chip bg-indigo-100 text-indigo-800 text-xs font-bold px-2 py-1 rounded-md flex items-center gap-1"
+                    <div class="item-chip bg-blue-50 text-slate-700 text-xs font-bold px-2 py-1 rounded-md flex items-center gap-1"
                         draggable="true" data-item-id="${item.id}" data-from-group="${g.id}"
                         ondragstart="dragItem = {item: {id:'${item.id}', name:'${item.name}', selling_price:${item.selling_price}}, fromGroupId:'${g.id}'}; event.dataTransfer.effectAllowed='move'">
-                        <span>${item.name}</span><span class="text-indigo-400">(${item.selling_price})</span>
-                        <button onclick="removeFromGroup('${g.id}','${item.id}')" class="ml-1 text-indigo-400 hover:text-red-500 font-black leading-none">×</button>
+                        <span>${item.name}</span><span class="text-slate-400">(${item.selling_price})</span>
+                        <button onclick="removeFromGroup('${g.id}','${item.id}')" class="ml-1 text-slate-400 hover:text-red-500 font-black leading-none">×</button>
                     </div>
                 `).join('')}
             </div>
@@ -200,8 +200,8 @@ function renderLinkedResources() {
         return;
     }
     list.innerHTML = linkedResources.map(r => `
-        <div class="flex items-center justify-between bg-orange-50 border border-orange-100 rounded-lg px-3 py-2">
-            <span class="text-sm font-bold text-orange-800">${r.name}</span>
+        <div class="flex items-center justify-between bg-slate-50 border border-slate-200 rounded-lg px-3 py-2">
+            <span class="text-sm font-bold text-slate-700">${r.name}</span>
             <button onclick="removeLinkedResource('${r.id}')" class="text-red-400 hover:text-red-600 text-xs font-bold px-2 py-1 hover:bg-red-50 rounded transition-colors">✕ Remove</button>
         </div>
     `).join('');

@@ -12,7 +12,7 @@ async function load() {
         tb.innerHTML += `
         <tr class="hover:bg-slate-50 border-b border-slate-100 transition-colors">
             <td class="py-3 px-4 font-medium text-slate-800">${i.name}</td>
-            <td class="py-3 px-4"><span class="px-2 py-1 text-xs font-bold rounded ${i.is_service ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}">${i.is_service ? 'Service' : i.type}</span></td>
+            <td class="py-3 px-4"><span class="px-2 py-1 text-xs font-bold rounded ${i.is_service ? 'bg-slate-100 text-slate-600' : 'bg-blue-100 text-blue-700'}">${i.is_service ? 'Service' : i.type}</span></td>
             <td class="py-3 px-4 text-right">${i.buying_price}</td>
             <td class="py-3 px-4 text-right font-bold text-slate-800">${i.selling_price}</td>
             <td class="py-3 px-4 text-center">${i.is_service ? '-' : i.stock_quantity}</td>

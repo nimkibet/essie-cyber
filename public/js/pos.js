@@ -7,7 +7,7 @@ window.setQuickPayUI = function(method) {
     const btnM = document.getElementById('quick-pay-mpesa');
     const btnC = document.getElementById('quick-pay-cash');
     if (quickPay === 'M-Pesa') {
-        btnM.className = 'flex-1 bg-emerald-700 text-white py-2 rounded font-medium shadow transition';
+        btnM.className = 'flex-1 bg-blue-700 text-white py-2 rounded font-medium shadow transition';
         btnC.className = 'flex-1 bg-gray-200 text-gray-700 py-2 rounded font-medium transition';
     } else {
         btnC.className = 'flex-1 bg-blue-600 text-white py-2 rounded font-medium shadow transition';
@@ -48,23 +48,23 @@ function renderBindingOptions() {
         // Fallback: show all spirals individually
         const spirals = inventory.filter(i => { const n = i.name.toLowerCase(); return n.includes('spiral') && !n.includes('a5 spiral'); });
         if (!activeBindingItem && spirals.length > 0) activeBindingItem = spirals[0];
-        container.innerHTML = spirals.map(m => `<button onclick="window.selectBindingItem('${m.id}')" class="px-2 py-1 rounded text-xs font-bold ${activeBindingItem && activeBindingItem.id === m.id ? 'bg-purple-600 text-white shadow' : 'bg-white text-purple-700 border border-purple-200'}">${m.name} (${m.selling_price})</button>`).join('');
+        container.innerHTML = spirals.map(m => `<button onclick="window.selectBindingItem('${m.id}')" class="px-2 py-1 rounded text-xs font-bold ${activeBindingItem && activeBindingItem.id === m.id ? 'bg-slate-700 text-white shadow' : 'bg-white text-slate-600 border border-slate-200'}">${m.name} (${m.selling_price})</button>`).join('');
         return;
     }
 
     if (!activeBindingGroup) activeBindingGroup = bindingGroups[0];
-    let html = bindingGroups.map(g => `<button onclick="window.setBindingGroup('${g.id}')" class="px-3 py-1.5 rounded text-xs font-bold transition-all ${activeBindingGroup && activeBindingGroup.id === g.id ? 'bg-purple-600 text-white shadow' : 'bg-white text-purple-700 border border-purple-200 hover:bg-purple-50'}">${g.name}</button>`).join('');
+    let html = bindingGroups.map(g => `<button onclick="window.setBindingGroup('${g.id}')" class="px-3 py-1.5 rounded text-xs font-bold transition-all ${activeBindingGroup && activeBindingGroup.id === g.id ? 'bg-slate-700 text-white shadow' : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'}">${g.name}</button>`).join('');
 
     if (showTapeButton) {
-        html += `<button onclick="window.setBindingGroup('__tape__')" class="px-3 py-1.5 rounded text-xs font-bold ${activeBindingGroup && activeBindingGroup.id === '__tape__' ? 'bg-amber-500 text-white shadow' : 'bg-white text-amber-700 border border-amber-200 hover:bg-amber-50'}">📌 Tape</button>`;
+        html += `<button onclick="window.setBindingGroup('__tape__')" class="px-3 py-1.5 rounded text-xs font-bold ${activeBindingGroup && activeBindingGroup.id === '__tape__' ? 'bg-slate-600 text-white shadow' : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'}">📌 Tape</button>`;
     }
 
     if (activeBindingGroup && activeBindingGroup.id !== '__tape__' && activeBindingGroup.items && activeBindingGroup.items.length > 0) {
-        html += `<div class="w-full flex flex-wrap gap-1.5 mt-2 pt-2 border-t border-purple-100">`;
+        html += `<div class="w-full flex flex-wrap gap-1.5 mt-2 pt-2 border-t border-slate-200">`;
         html += activeBindingGroup.items.map(item => {
             const inv_item = inventory.find(i => i.id === item.id);
             const price = inv_item ? inv_item.selling_price : item.selling_price;
-            return `<button onclick="window.selectBindingItem('${item.id}')" class="px-2 py-1 rounded text-xs font-semibold ${activeBindingItem && activeBindingItem.id === item.id ? 'bg-purple-600 text-white' : 'bg-purple-50 text-purple-700 border border-purple-200 hover:bg-purple-100'}" data-binding-item="${item.id}">${item.name} (${price})</button>`;
+            return `<button onclick="window.selectBindingItem('${item.id}')" class="px-2 py-1 rounded text-xs font-semibold ${activeBindingItem && activeBindingItem.id === item.id ? 'bg-slate-700 text-white' : 'bg-slate-50 text-slate-600 border border-slate-200 hover:bg-slate-100'}" data-binding-item="${item.id}">${item.name} (${price})</button>`;
         }).join('');
         html += `</div>`;
     }
@@ -159,7 +159,7 @@ function renderLedger() {
 
     Object.entries(groups).forEach(([key, grp], idx) => {
         let methodBadge = '';
-        if (grp.mpesaAmount > 0) methodBadge += '<span class="text-xs font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full mr-1">M-Pesa ' + grp.mpesaAmount.toFixed(0) + '</span>';
+        if (grp.mpesaAmount > 0) methodBadge += '<span class="text-xs font-bold text-slate-700 bg-emerald-50 px-2 py-0.5 rounded-full mr-1">M-Pesa ' + grp.mpesaAmount.toFixed(0) + '</span>';
         if (grp.cashAmount > 0) methodBadge += '<span class="text-xs font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full">Cash ' + grp.cashAmount.toFixed(0) + '</span>';
 
         const safeKey = key.replace(/[^a-zA-Z0-9]/g, '_') + '_' + idx;
@@ -191,7 +191,7 @@ function renderLedger() {
                             <td class="py-1.5 px-6 text-slate-500">${new Date(e.timestamp).toLocaleTimeString()}</td>
                             <td class="py-1.5 px-4 text-center">${e.calculated_qty}</td>
                             <td class="py-1.5 px-4 text-right font-semibold">Ksh ${e.total_charged.toFixed(2)}</td>
-                            <td class="py-1.5 px-4 text-center"><button onclick="togglePayment('${e.id}', '${e.payment_method}')" class="px-2 py-0.5 rounded text-xs font-bold ${e.payment_method.toLowerCase() === 'mpesa' ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200' : 'bg-blue-100 text-blue-700 hover:bg-blue-200'}" title="Click to change">${e.payment_method.toUpperCase()}</button></td>
+                            <td class="py-1.5 px-4 text-center"><button onclick="togglePayment('${e.id}', '${e.payment_method}')" class="px-2 py-0.5 rounded text-xs font-bold ${e.payment_method.toLowerCase() === 'mpesa' ? 'bg-slate-100 text-slate-700 hover:bg-emerald-200' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}" title="Click to change">${e.payment_method.toUpperCase()}</button></td>
                             <td class="py-1.5 px-4 text-center">
                                 <button onclick="voidSale('${e.id}')" class="text-red-500 hover:text-red-700 font-bold text-base leading-none" title="Void this entry">&times;</button>
                             </td>
@@ -688,7 +688,7 @@ qresInput.addEventListener('input', () => {
     const matches = inventory.filter(i => !i.is_service && i.name.toLowerCase().includes(term));
     if (!term || matches.length === 0) { qresResults.classList.add('hidden'); return; }
     qresResults.innerHTML = matches.slice(0, 10).map(i =>
-        `<div class="p-2 text-sm cursor-pointer hover:bg-purple-50 border-b"
+        `<div class="p-2 text-sm cursor-pointer hover:bg-slate-50 border-b"
               onclick="selectQRes('${i.id}', '${i.name.replace(/'/g, "\\'")}', ${i.buying_price || 0})">
             <div class="font-bold">${i.name}</div>
             <div class="text-xs text-gray-400">Stock: ${i.stock_quantity} | BP: Ksh ${i.buying_price || 0}</div>
