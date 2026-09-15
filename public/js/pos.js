@@ -1,5 +1,5 @@
 import { supabase, currentUser, requireAuth } from './supabaseClient.js';
-import { insertSaleWithOfflineSupport, syncOfflineSales } from './offlineQueue.js';
+import { insertSaleWithOfflineSupport, syncOfflineSales, insertExpenseWithOfflineSupport, syncOfflineExpenses } from './offlineQueue.js';
 requireAuth();
 let inventory = [], customers = [], todaysSales = [];
 
@@ -817,18 +817,22 @@ document.getElementById('btn-log-expense').addEventListener('click', async () =>
     btn.disabled = true; btn.textContent = 'Logging...';
     
     try {
-        const { error } = await supabase.from('overhead_entries').insert([{
+        const payload = {
             period: new Date().toISOString().slice(0, 7),
             other_fixed: amt,
-            note: desc,
             rent: 0, electricity: 0, wifi_internet: 0
-        }]);
-        if (error) throw error;
+        };
+        const res = await insertExpenseWithOfflineSupport(supabase, payload, desc);
         
         const descField = document.getElementById('exp-desc');
         if(descField) descField.value = '';
         document.getElementById('exp-amount').value = '';
-        alert('Expense logged: ' + desc + ' - Ksh ' + amt);
+        
+        if (res.offline) {
+            alert('No internet — expense queued locally (' + desc + ' - Ksh ' + amt + ')');
+        } else {
+            alert('Expense logged: ' + desc + ' - Ksh ' + amt);
+        }
     } catch(err) {
         alert('Error: ' + err.message);
     } finally {
@@ -988,11 +992,15 @@ document.addEventListener('keydown', resetFocusTimer);
 document.addEventListener('click', resetFocusTimer);
 // --- OFFLINE SYNC LISTENER ---
 window.addEventListener('online', async () => {
-    console.log('[Network] Back online, syncing sales...');
-    const count = await syncOfflineSales(supabase);
-    if (count > 0) {
+    console.log('[Network] Back online, syncing sales and expenses...');
+    const salesCount = await syncOfflineSales(supabase);
+    const expensesCount = await syncOfflineExpenses(supabase);
+    if (salesCount > 0) {
         // Refresh the ledger
         fetchTodaysSales();
+    }
+    if (expensesCount > 0) {
+        console.log(`Synced ${expensesCount} expenses.`);
     }
 });
 resetFocusTimer(); // Init

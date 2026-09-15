@@ -9,7 +9,13 @@ function openOfflineDB() {
     return new Promise((resolve, reject) => {
         const req = indexedDB.open(DB_NAME, DB_VERSION);
         req.onupgradeneeded = (e) => {
-            e.target.result.createObjectStore(STORE, { keyPath: 'id', autoIncrement: true });
+            const db = e.target.result;
+            if (!db.objectStoreNames.contains(STORE)) {
+                db.createObjectStore(STORE, { keyPath: 'id', autoIncrement: true });
+            }
+            if (!db.objectStoreNames.contains('pending_expenses')) {
+                db.createObjectStore('pending_expenses', { keyPath: 'id', autoIncrement: true });
+            }
         };
         req.onsuccess = () => resolve(req.result);
         req.onerror = () => reject(req.error);
@@ -82,4 +88,54 @@ export async function syncOfflineSales(supabase) {
         return synced;
     }
     return 0;
+}
+
+export async function insertExpenseWithOfflineSupport(supabase, payload, desc) {
+    if (!navigator.onLine) {
+        const db = await openOfflineDB();
+        await new Promise((resolve, reject) => {
+            const tx = db.transaction('pending_expenses', 'readwrite');
+            tx.objectStore('pending_expenses').add({ ...payload, _offline_desc: desc, queued_at: Date.now() });
+            tx.oncomplete = resolve;
+            tx.onerror = () => reject(tx.error);
+        });
+        console.log('[Offline] Expense queued locally:', payload);
+        return { offline: true };
+    }
+    const { data, error } = await supabase.from('overhead_entries').insert([payload]).select().single();
+    if (error) throw error;
+    return { data };
+}
+
+export async function syncOfflineExpenses(supabase) {
+    const db = await openOfflineDB();
+    const pending = await new Promise((resolve, reject) => {
+        const tx = db.transaction('pending_expenses', 'readonly');
+        const req = tx.objectStore('pending_expenses').getAll();
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error);
+    });
+
+    if (!pending || !pending.length) return 0;
+    console.log(`[Sync] ${pending.length} pending expenses to sync...`);
+    
+    let synced = 0;
+    for (const exp of pending) {
+        const { id, queued_at, _offline_desc, ...payload } = exp;
+        try {
+            const { error } = await supabase.from('overhead_entries').insert([payload]);
+            if (!error) {
+                await new Promise((resolve, reject) => {
+                    const tx = db.transaction('pending_expenses', 'readwrite');
+                    tx.objectStore('pending_expenses').delete(id);
+                    tx.oncomplete = resolve;
+                    tx.onerror = () => reject(tx.error);
+                });
+                synced++;
+            }
+        } catch (err) {
+            console.warn('[Sync] Failed to sync expense:', err.message);
+        }
+    }
+    return synced;
 }
