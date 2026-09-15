@@ -17,6 +17,24 @@ window.setQuickPayUI = function(method) {
 
 let activeQuick = "Print / Copy", quickPay = "M-Pesa", mainPay = "M-Pesa";
 
+// --- LINKED RESOURCES (BINDING) ---
+async function deductBindingMaterials(qty) {
+    const embossed = inventory.find(i => i.name === 'EMBOSSED');
+    const pvc = inventory.find(i => i.name === 'PVC (BLUE)');
+    
+    if (embossed) {
+        const newStock = (embossed.stock_quantity || 0) - qty;
+        await supabase.from('inventory').update({ stock_quantity: newStock }).eq('id', embossed.id);
+        embossed.stock_quantity = newStock; // update local state
+    }
+    if (pvc) {
+        const newStock = (pvc.stock_quantity || 0) - qty;
+        await supabase.from('inventory').update({ stock_quantity: newStock }).eq('id', pvc.id);
+        pvc.stock_quantity = newStock; // update local state
+    }
+}
+
+
 async function loadData() {
     const {data:inv} = await supabase.from('inventory').select('*').order('name'); const {data:cust} = await supabase.from('customers').select('*').order('name');
     inventory = inv || []; customers = cust || []; console.log('DEBUG: Loaded inventory length:', inventory.length);
@@ -162,6 +180,11 @@ document.getElementById('quick-log-btn').addEventListener('click', async () => {
     let item = inventory.find(i => i.name === activeQuick);
     if (!item) { const {data} = await supabase.from('inventory').insert([{name: activeQuick, type: 'variable', selling_price: 0, is_service: true}]).select().single(); item = data; inventory.push(item); }
     await supabase.from('sales_log').insert([{item_id: item.id, total_charged: amt, calculated_qty: 1, calculated_profit: amt, cashier_id: currentUser.id, payment_method: quickPay.toLowerCase().replace('-', '')}]);
+      // Auto-deduct linked binding materials
+      if (item.name.toLowerCase().includes('binding')) {
+          await deductBindingMaterials(1);
+      }
+
     document.getElementById('quick-amount').value = ''; if(window.setQuickPayUI) window.setQuickPayUI('M-Pesa'); if(window.setQuickServiceUI) window.setQuickServiceUI('Print / Copy'); fetchTodaysSales(); setTimeout(()=>document.getElementById('quick-amount').focus(), 100);
 });
 
