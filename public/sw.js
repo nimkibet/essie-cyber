@@ -1,38 +1,13 @@
-const CACHE_NAME = 'essie-cyber-v43-multi';
-const SHELL_ASSETS = [
-    '/login.html',
-    '/pos.html',
-    '/inventory.html',
-    '/customers.html',
-    '/users.html',
-    '/admin.html',
-    '/analytics.html',
-    '/settings.html',
-    '/offline.html',
-    '/js/login.js',
-    '/js/pos.js',
-    '/js/inventory.js',
-    '/js/customers.js',
-    '/js/users.js',
-    '/js/admin.js',
-    '/js/analytics.js',
-    '/js/settings.js',
-    '/js/supabaseClient.js',
-    '/js/uiHelper.js',
-    '/manifest.json'
-];
+const CACHE_NAME = 'essie-cyber-v44-multi';
+
+// Only pre-cache the offline fallback page at install time.
+// Everything else gets cached as the user visits it (cache-on-navigate).
+const PRECACHE = ['/offline.html'];
 
 self.addEventListener('install', (e) => {
     self.skipWaiting();
     e.waitUntil(
-        caches.open(CACHE_NAME).then(cache => {
-            // Use allSettled so one 404 doesn't kill the whole cache
-            return Promise.allSettled(
-                SHELL_ASSETS.map(url =>
-                    cache.add(url).catch(err => console.warn('[SW] Failed to cache:', url, err.message))
-                )
-            );
-        })
+        caches.open(CACHE_NAME).then(cache => cache.addAll(PRECACHE))
     );
 });
 
@@ -47,33 +22,46 @@ self.addEventListener('activate', (e) => {
 self.addEventListener('fetch', (e) => {
     const url = new URL(e.request.url);
 
-    // Never intercept Supabase — let those fail naturally offline
+    // Never intercept Supabase or CDN calls
+    if (!url.hostname.includes(self.location.hostname) && url.origin !== self.location.origin) return;
     if (url.hostname.includes('supabase.co')) return;
-
-    // Only handle same-origin
-    if (url.origin !== self.location.origin) return;
+    if (url.hostname.includes('cdn.')) return;
+    if (url.hostname.includes('jsdelivr') || url.hostname.includes('cdnjs') || url.hostname.includes('tailwind')) return;
 
     const isNavigation = e.request.mode === 'navigate';
+    const isAsset = /\.(js|css|png|jpg|svg|ico|json|woff2?)$/.test(url.pathname);
 
     e.respondWith(
-        caches.match(e.request).then(cached => {
-            // Network fetch with background cache update
-            const networkFetch = fetch(e.request).then(res => {
-                if (res.ok) {
-                    caches.open(CACHE_NAME).then(c => c.put(e.request, res.clone()));
-                }
-                return res;
-            });
+        caches.open(CACHE_NAME).then(cache =>
+            cache.match(e.request).then(cached => {
 
-            if (isNavigation) {
-                // For page navigations: try network first, fall back to cache, then offline page
-                return networkFetch.catch(() =>
-                    cached || caches.match('/offline.html')
-                );
-            } else {
-                // For assets (JS/CSS): serve cached immediately if available, update in background
-                return cached || networkFetch.catch(() => new Response('', { status: 408 }));
-            }
-        })
+                const networkFetch = fetch(e.request).then(res => {
+                    // Cache successful same-origin responses
+                    if (res.ok && (isNavigation || isAsset)) {
+                        cache.put(e.request, res.clone());
+                    }
+                    return res;
+                });
+
+                if (isNavigation) {
+                    // Network first; fall back to cache; last resort: offline page
+                    return networkFetch.catch(() => {
+                        if (cached) return cached;
+                        return caches.match('/offline.html');
+                    });
+                }
+
+                if (isAsset) {
+                    // Cache first for JS/CSS; update in background
+                    if (cached) {
+                        networkFetch.catch(() => {}); // background update, ignore errors
+                        return cached;
+                    }
+                    return networkFetch.catch(() => new Response('', { status: 408 }));
+                }
+
+                return networkFetch.catch(() => cached || new Response('', { status: 408 }));
+            })
+        )
     );
 });
