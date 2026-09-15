@@ -40,28 +40,28 @@ function renderLedger() {
     // Group by item name + payment method
     const groups = {};
     todaysSales.forEach(s => {
-        const key = (s.inventory?.name || 'Unknown') + '||' + s.payment_method;
+        const key = (s.inventory?.name || 'Unknown');
         if (!groups[key]) {
             groups[key] = {
                 name: s.inventory?.name || 'Unknown',
-                method: s.payment_method,
                 totalQty: 0,
                 totalAmount: 0,
+                mpesaAmount: 0,
+                cashAmount: 0,
                 entries: []
             };
         }
         groups[key].totalQty += (s.calculated_qty || 0);
         groups[key].totalAmount += (s.total_charged || 0);
+        if (s.payment_method === 'mpesa') { groups[key].mpesaAmount += s.total_charged; m += s.total_charged; }
+        else { groups[key].cashAmount += s.total_charged; c += s.total_charged; }
         groups[key].entries.push(s);
-
-        if (s.payment_method === 'mpesa') m += s.total_charged;
-        else c += s.total_charged;
     });
 
     Object.entries(groups).forEach(([key, grp], idx) => {
-        const methodBadge = grp.method === 'mpesa'
-            ? '<span class="text-xs font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full">M-Pesa</span>'
-            : '<span class="text-xs font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full">Cash</span>';
+        let methodBadge = '';
+        if (grp.mpesaAmount > 0) methodBadge += '<span class="text-xs font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full mr-1">M-Pesa ' + grp.mpesaAmount.toFixed(0) + '</span>';
+        if (grp.cashAmount > 0) methodBadge += '<span class="text-xs font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full">Cash ' + grp.cashAmount.toFixed(0) + '</span>';
 
         const safeKey = key.replace(/[^a-zA-Z0-9]/g, '_') + '_' + idx;
 
