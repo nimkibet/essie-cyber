@@ -4,3 +4,6 @@ SUPABASE_CREDENTIALS.txt
 fix-rls.py
 fix_policies.js
 run_migration.js
+
+# Agent temporary scripts
+_agent_scripts/
