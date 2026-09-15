@@ -25,8 +25,11 @@ function renderBindingOptions() {
     const container = document.getElementById('binding-options-container');
     if (!container) return;
     
-    // Find rings and tapes
-    bindingMaterials = inventory.filter(i => i.name.toLowerCase().includes('ring') || i.name.toLowerCase().includes('tape binding'));
+    // Find spirals (binding rings) and binding tapes — items are named "SPIRAL Xmm" or "BINDING TAPES"
+    bindingMaterials = inventory.filter(i => {
+        const n = i.name.toLowerCase();
+        return n.includes('spiral') || n === 'binding tapes';
+    }).filter(i => !i.name.toLowerCase().includes('a5 spiral')); // exclude notebook spirals
     
     if (bindingMaterials.length === 0) {
         container.innerHTML = '<span class="text-xs text-purple-600 font-bold">No rings or tape found in inventory</span>';
