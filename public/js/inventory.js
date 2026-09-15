@@ -1,7 +1,6 @@
 import { supabase, currentUser, requireAuth } from './supabaseClient.js';
 import { showModal } from './uiHelper.js';
 requireAuth();
-if(currentUser.role !== 'admin') window.location.href = '/pos.html';
 
 async function load() {
     const {data} = await supabase.from('inventory').select('*').order('name');
