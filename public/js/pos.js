@@ -114,7 +114,9 @@ async function deductBindingMaterials(qty) {
         const item = inventory.find(i => i.id === res.id);
         if (item) {
             const newStock = (item.stock_quantity || 0) - qty;
-            await supabase.from('inventory').update({ stock_quantity: newStock }).eq('id', item.id);
+            try {
+                if (navigator.onLine) await supabase.from('inventory').update({ stock_quantity: newStock }).eq('id', item.id);
+            } catch(e) {}
             item.stock_quantity = newStock;
         }
     }
@@ -316,19 +318,41 @@ document.getElementById('quick-log-btn').addEventListener('click', async () => {
               logProfit = amt - (ringItem.buying_price * logQty);
               // Deduct ring stock by quantity
               const newRingStock = (logItem.stock_quantity || 0) - logQty;
-              await supabase.from('inventory').update({ stock_quantity: newRingStock }).eq('id', logItem.id);
+              try {
+                  if (navigator.onLine) await supabase.from('inventory').update({ stock_quantity: newRingStock }).eq('id', logItem.id);
+              } catch(e) {}
               if (logItem) logItem.stock_quantity = newRingStock;
           } else {
               // Tape binding or no item configured — use generic Binding Service item
               let svcItem = inventory.find(i => i.name === 'Binding Service');
-              if (!svcItem) { const {data} = await supabase.from('inventory').insert([{name: 'Binding Service', type: 'variable', selling_price: 0, is_service: true}]).select().single(); svcItem = data; inventory.push(svcItem); }
+              if (!svcItem) { 
+                  try {
+                      if (navigator.onLine) {
+                          const {data} = await supabase.from('inventory').insert([{name: 'Binding Service', type: 'variable', selling_price: 0, is_service: true}]).select().single(); 
+                          svcItem = data; 
+                      } else {
+                          svcItem = { id: 'temp-binding-srv', name: 'Binding Service', type: 'variable', selling_price: 0, is_service: true };
+                      }
+                  } catch(e) { svcItem = { id: 'temp-binding-srv', name: 'Binding Service', type: 'variable', selling_price: 0, is_service: true }; }
+                  inventory.push(svcItem); 
+              }
               logItem = svcItem;
           }
           // Always deduct linked resources (covers) for any binding job
           await deductBindingMaterials(logQty);
       } else {
           let item = inventory.find(i => i.name === activeQuick);
-          if (!item) { const {data} = await supabase.from('inventory').insert([{name: activeQuick, type: 'variable', selling_price: 0, is_service: true}]).select().single(); item = data; inventory.push(item); }
+          if (!item) { 
+              try {
+                  if (navigator.onLine) {
+                      const {data} = await supabase.from('inventory').insert([{name: activeQuick, type: 'variable', selling_price: 0, is_service: true}]).select().single(); 
+                      item = data; 
+                  } else {
+                      item = { id: `temp-${activeQuick.replace(/\s+/g,'-')}`, name: activeQuick, type: 'variable', selling_price: 0, is_service: true };
+                  }
+              } catch(e) { item = { id: `temp-${activeQuick.replace(/\s+/g,'-')}`, name: activeQuick, type: 'variable', selling_price: 0, is_service: true }; }
+              inventory.push(item); 
+          }
           logItem = item;
       }
 
