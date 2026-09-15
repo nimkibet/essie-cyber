@@ -129,7 +129,7 @@ document.getElementById('quick-log-btn').addEventListener('click', async () => {
     let item = inventory.find(i => i.name === activeQuick);
     if (!item) { const {data} = await supabase.from('inventory').insert([{name: activeQuick, type: 'variable', selling_price: 0, is_service: true}]).select().single(); item = data; inventory.push(item); }
     await supabase.from('sales_log').insert([{item_id: item.id, total_charged: amt, calculated_qty: 1, calculated_profit: amt, cashier_id: currentUser.id, payment_method: quickPay.toLowerCase().replace('-', '')}]);
-    document.getElementById('quick-amount').value = ''; fetchTodaysSales();
+    document.getElementById('quick-amount').value = ''; fetchTodaysSales(); setTimeout(()=>document.getElementById('quick-amount').focus(), 100);
 });
 
 
@@ -215,6 +215,7 @@ document.getElementById('pos-qty').addEventListener('input', () => {
         
         // Reset form
         document.getElementById('pos-item-search').value = '';
+          setTimeout(()=>document.getElementById('quick-amount').focus(), 100);
         document.getElementById('pos-item-id').value = '';
         document.getElementById('pos-total').value = '';
         document.getElementById('pos-qty').value = 1;
@@ -441,7 +442,21 @@ window.voidSale = async (id) => {
 
 
 // ─── LEDGER TOGGLE ────────────────────────────────────────────────────────────
-let ledgerVisible = true;
+let ledgerVisible = false;
+
+// Ledger Auto-hide logic
+let ledgerTimer;
+function resetLedgerTimer() {
+    clearTimeout(ledgerTimer);
+    if (ledgerVisible) {
+        ledgerTimer = setTimeout(() => {
+            if (ledgerVisible) document.getElementById('btn-toggle-ledger').click();
+        }, 5 * 60 * 1000);
+    }
+}
+document.addEventListener('mousemove', resetLedgerTimer);
+document.addEventListener('keydown', resetLedgerTimer);
+
 document.getElementById('btn-toggle-ledger').addEventListener('click', () => {
     ledgerVisible = !ledgerVisible;
     const table = document.getElementById('ledger-table-wrap');
@@ -459,6 +474,7 @@ document.getElementById('btn-toggle-ledger').addEventListener('click', () => {
         icon.textContent = '🚫';
         label.textContent = 'Show';
     }
+    resetLedgerTimer();
 });
 
 // ─── QUICK EXPENSE LOGGER ─────────────────────────────────────────────────────
@@ -546,3 +562,43 @@ document.getElementById('btn-open-resource').addEventListener('click', async () 
         btn.disabled = false; btn.textContent = 'Open Resource';
     }
 });
+
+// --- KEYBOARD SHORTCUTS ---
+const quickAmt = document.getElementById('quick-amount');
+quickAmt.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+        e.preventDefault();
+        // Update global quickPay state
+        
+        
+        setQuickPayUI(e.shiftKey ? 'Cash' : 'M-Pesa');
+        
+        // Trigger save
+        document.getElementById('quick-log-btn').click();
+    }
+});
+
+const mainInputs = ['pos-item-search', 'pos-qty', 'pos-total', 'pos-customer', 'kyo-pages', 'kyo-cost-pp'];
+mainInputs.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) {
+        el.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                if (isDocMode) return; // Do nothing if in Quote/Receipt mode
+                e.preventDefault();
+                if (e.shiftKey) {
+                    document.getElementById('main-pay-cash').click();
+                } else {
+                    document.getElementById('main-pay-mpesa').click();
+                }
+            }
+        });
+    }
+});
+
+// Default focus on load
+setTimeout(() => { document.getElementById('quick-amount').focus(); }, 500);
+
+// Set focus back after logging a quick sale
+const originalQuickLogCode = "document.getElementById('quick-amount').value = ''; fetchTodaysSales();";
+const newQuickLogCode = "document.getElementById('quick-amount').value = ''; fetchTodaysSales(); setTimeout(()=>document.getElementById('quick-amount').focus(), 100);";
