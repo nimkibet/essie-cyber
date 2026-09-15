@@ -209,7 +209,7 @@ document.getElementById('pos-qty').addEventListener('input', () => {
             calculated_qty: qty, 
             calculated_profit: amt - (bc*qty), 
             cashier_id: currentUser.id, 
-            payment_method: e.target.innerText.replace('Processing...', e.target.id.includes('mpesa') ? 'M-Pesa' : 'Cash'), 
+            payment_method: e.target.id.includes('mpesa') ? 'mpesa' : 'cash', 
             kyocera_pages: kyo
         }]);
         
