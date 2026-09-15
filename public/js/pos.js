@@ -680,19 +680,19 @@ document.querySelectorAll('.exp-tab').forEach(btn => {
 
         // Toggle fields
         const wageFields = document.getElementById('exp-wage-fields');
-        const descField = document.getElementById('exp-desc');
+        
         const amtField = document.getElementById('exp-amount');
         
         wageFields.classList.add('hidden');
-        descField.classList.add('hidden');
+        
         
         if (type === 'wage') {
             wageFields.classList.remove('hidden');
             amtField.placeholder = "Base Wage (Ksh)";
         } else if (type === 'other') {
-            descField.classList.remove('hidden');
-            descField.placeholder = "Description...";
-            amtField.placeholder = "Amount (Ksh)";
+            
+            
+            
         } else {
             amtField.placeholder = "Amount (Ksh)";
         }
@@ -714,9 +714,6 @@ document.getElementById('btn-log-expense').addEventListener('click', async () =>
         if (extra < 0) desc += ` (${extra} deduction)`;
         amt = (amt || 0) + extra;
     }
-    else if (activeExpenseTab === 'other') {
-        desc = document.getElementById('exp-desc').value.trim();
-    }
 
     if (!desc || isNaN(amt) || amt <= 0) return alert('Enter valid details and amount.');
     
@@ -732,7 +729,7 @@ document.getElementById('btn-log-expense').addEventListener('click', async () =>
         }]);
         if (error) throw error;
         
-        document.getElementById('exp-desc').value = '';
+        
         document.getElementById('exp-amount').value = '';
         document.getElementById('exp-wage-extra').value = '';
         alert('Expense logged: ' + desc + ' - Ksh ' + amt);
