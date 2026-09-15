@@ -76,10 +76,16 @@ window.setBindingGroup = function(id) {
     if (id === '__tape__') {
         activeBindingGroup = { id: '__tape__', name: 'Tape', items: [], noStock: true };
         activeBindingItem = null;
+        document.getElementById('quick-amount').value = '';
     } else {
         activeBindingGroup = bindingGroups.find(g => g.id === id) || null;
         activeBindingItem = activeBindingGroup && activeBindingGroup.items[0]
             ? inventory.find(i => i.id === activeBindingGroup.items[0].id) : null;
+        // Auto-fill amount from group name price (e.g. "KSH 50" → 50)
+        if (activeBindingGroup) {
+            const price = parseFloat((activeBindingGroup.name || '').replace(/[^0-9.]/g, ''));
+            if (price) document.getElementById('quick-amount').value = price;
+        }
     }
     renderBindingOptions();
 };
@@ -275,11 +281,15 @@ document.getElementById('quick-log-btn').addEventListener('click', async () => {
           const ringItem = activeBindingItem || (activeBindingGroup && activeBindingGroup.items && activeBindingGroup.items[0] ? inventory.find(i => i.id === activeBindingGroup.items[0].id) : null);
 
           if (ringItem && !isNoStock) {
-              const standardPrice = ringItem.selling_price || 50;
+              // Service price per binding job comes from the GROUP NAME (e.g. "KSH 50" → 50)
+              const groupNamePrice = activeBindingGroup
+                  ? parseFloat((activeBindingGroup.name || '').replace(/[^0-9.]/g, '')) || null
+                  : null;
+              const standardPrice = groupNamePrice || ringItem.selling_price || 50;
               logQty = Math.max(1, Math.floor(amt / standardPrice));
               logItem = ringItem;
-              logProfit = amt - (logItem.buying_price * logQty);
-              // Deduct specific ring stock
+              logProfit = amt - (ringItem.buying_price * logQty);
+              // Deduct ring stock by quantity
               const newRingStock = (logItem.stock_quantity || 0) - logQty;
               await supabase.from('inventory').update({ stock_quantity: newRingStock }).eq('id', logItem.id);
               if (logItem) logItem.stock_quantity = newRingStock;
