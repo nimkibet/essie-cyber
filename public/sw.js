@@ -1,4 +1,4 @@
-const CACHE_NAME = 'essie-cyber-v33-multi';
+const CACHE_NAME = 'essie-cyber-v34-multi';
 const ASSETS = [
     '/',
     '/login.html',

@@ -3,13 +3,26 @@ import { showModal } from './uiHelper.js';
 requireAuth();
 
 async function load() {
+    const tb = document.getElementById('inv-tbody');
+    // Show skeleton rows while fetching
+    tb.innerHTML = Array(8).fill(0).map(() => `
+        <tr class="border-b border-slate-100">
+            <td class="py-3 px-4"><div class="h-4 bg-slate-200 rounded animate-pulse w-3/4"></div></td>
+            <td class="py-3 px-4"><div class="h-4 bg-slate-200 rounded animate-pulse w-16"></div></td>
+            <td class="py-3 px-4"><div class="h-4 bg-slate-200 rounded animate-pulse w-12 ml-auto"></div></td>
+            <td class="py-3 px-4"><div class="h-4 bg-slate-200 rounded animate-pulse w-12 ml-auto"></div></td>
+            <td class="py-3 px-4"><div class="h-4 bg-slate-200 rounded animate-pulse w-8 mx-auto"></div></td>
+            <td class="py-3 px-4"><div class="h-4 bg-slate-200 rounded animate-pulse w-24 mx-auto"></div></td>
+        </tr>
+    `).join('');
+
     const {data} = await supabase.from('inventory').select('*').order('name');
-    const tb = document.getElementById('inv-tbody'); 
-    tb.innerHTML = '';
     
+    // Build all HTML as a string, set once — avoids 167x DOM re-parse
+    let html = '';
     (data||[]).forEach(i => {
         // Main Display Row
-        tb.innerHTML += `
+        html += `
         <tr class="hover:bg-slate-50 border-b border-slate-100 transition-colors">
             <td class="py-3 px-4 font-medium text-slate-800">${i.name}</td>
             <td class="py-3 px-4"><span class="px-2 py-1 text-xs font-bold rounded ${i.is_service ? 'bg-slate-100 text-slate-600' : 'bg-blue-100 text-blue-700'}">${i.is_service ? 'Service' : i.type}</span></td>
