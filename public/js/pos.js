@@ -18,58 +18,93 @@ window.setQuickPayUI = function(method) {
 let activeQuick = "Print / Copy", quickPay = "M-Pesa", mainPay = "M-Pesa";
 
 
-let activeBindingMaterial = null;
-let bindingMaterials = [];
+let activeBindingGroup = null;
+let bindingGroups = [];
+let linkedBindingResources = [];
+let showTapeButton = false;
+let activeBindingItem = null;
+
+async function loadBindingSettings() {
+    const { data: rows } = await supabase.from('settings').select('key, value')
+        .in('key', ['binding_groups', 'binding_linked_resources', 'binding_show_tape']);
+    const map = {};
+    (rows || []).forEach(r => map[r.key] = r.value);
+    bindingGroups = map['binding_groups'] ? JSON.parse(map['binding_groups']) : [];
+    showTapeButton = map['binding_show_tape'] === 'true';
+    if (map['binding_linked_resources']) {
+        linkedBindingResources = JSON.parse(map['binding_linked_resources']);
+    } else {
+        linkedBindingResources = inventory
+            .filter(i => i.name === 'EMBOSSED' || i.name === 'PVC (BLUE)')
+            .map(i => ({ id: i.id, name: i.name }));
+    }
+}
 
 function renderBindingOptions() {
     const container = document.getElementById('binding-options-container');
     if (!container) return;
-    
-    // Find spirals (binding rings) and binding tapes — items are named "SPIRAL Xmm" or "BINDING TAPES"
-    bindingMaterials = inventory.filter(i => {
-        const n = i.name.toLowerCase();
-        return n.includes('spiral') || n === 'binding tapes';
-    }).filter(i => !i.name.toLowerCase().includes('a5 spiral')); // exclude notebook spirals
-    
-    if (bindingMaterials.length === 0) {
-        container.innerHTML = '<span class="text-xs text-purple-600 font-bold">No rings or tape found in inventory</span>';
+
+    if (bindingGroups.length === 0) {
+        // Fallback: show all spirals individually
+        const spirals = inventory.filter(i => { const n = i.name.toLowerCase(); return n.includes('spiral') && !n.includes('a5 spiral'); });
+        if (!activeBindingItem && spirals.length > 0) activeBindingItem = spirals[0];
+        container.innerHTML = spirals.map(m => `<button onclick="window.selectBindingItem('${m.id}')" class="px-2 py-1 rounded text-xs font-bold ${activeBindingItem && activeBindingItem.id === m.id ? 'bg-purple-600 text-white shadow' : 'bg-white text-purple-700 border border-purple-200'}">${m.name} (${m.selling_price})</button>`).join('');
         return;
     }
-    
-    if (!activeBindingMaterial) activeBindingMaterial = bindingMaterials[0];
-    
-    container.innerHTML = bindingMaterials.map(m => `
-        <button onclick="window.setBindingMaterial('${m.id}')" class="px-2 py-1 rounded text-xs font-bold ${activeBindingMaterial.id === m.id ? 'bg-purple-600 text-white shadow' : 'bg-white text-purple-700 border border-purple-200'}">${m.name} (${m.selling_price})</button>
-    `).join('');
+
+    if (!activeBindingGroup) activeBindingGroup = bindingGroups[0];
+    let html = bindingGroups.map(g => `<button onclick="window.setBindingGroup('${g.id}')" class="px-3 py-1.5 rounded text-xs font-bold transition-all ${activeBindingGroup && activeBindingGroup.id === g.id ? 'bg-purple-600 text-white shadow' : 'bg-white text-purple-700 border border-purple-200 hover:bg-purple-50'}">${g.name}</button>`).join('');
+
+    if (showTapeButton) {
+        html += `<button onclick="window.setBindingGroup('__tape__')" class="px-3 py-1.5 rounded text-xs font-bold ${activeBindingGroup && activeBindingGroup.id === '__tape__' ? 'bg-amber-500 text-white shadow' : 'bg-white text-amber-700 border border-amber-200 hover:bg-amber-50'}">📌 Tape</button>`;
+    }
+
+    if (activeBindingGroup && activeBindingGroup.id !== '__tape__' && activeBindingGroup.items && activeBindingGroup.items.length > 0) {
+        html += `<div class="w-full flex flex-wrap gap-1.5 mt-2 pt-2 border-t border-purple-100">`;
+        html += activeBindingGroup.items.map(item => {
+            const inv_item = inventory.find(i => i.id === item.id);
+            const price = inv_item ? inv_item.selling_price : item.selling_price;
+            return `<button onclick="window.selectBindingItem('${item.id}')" class="px-2 py-1 rounded text-xs font-semibold ${activeBindingItem && activeBindingItem.id === item.id ? 'bg-purple-600 text-white' : 'bg-purple-50 text-purple-700 border border-purple-200 hover:bg-purple-100'}" data-binding-item="${item.id}">${item.name} (${price})</button>`;
+        }).join('');
+        html += `</div>`;
+    }
+
+    container.innerHTML = html;
 }
 
-window.setBindingMaterial = function(id) {
-    activeBindingMaterial = bindingMaterials.find(m => m.id === id);
+window.setBindingGroup = function(id) {
+    if (id === '__tape__') {
+        activeBindingGroup = { id: '__tape__', name: 'Tape', items: [], noStock: true };
+        activeBindingItem = null;
+    } else {
+        activeBindingGroup = bindingGroups.find(g => g.id === id) || null;
+        activeBindingItem = activeBindingGroup && activeBindingGroup.items[0]
+            ? inventory.find(i => i.id === activeBindingGroup.items[0].id) : null;
+    }
     renderBindingOptions();
 };
 
-// --- LINKED RESOURCES (BINDING) ---
+window.selectBindingItem = function(itemId) {
+    activeBindingItem = inventory.find(i => i.id === itemId);
+    renderBindingOptions();
+};
+
 async function deductBindingMaterials(qty) {
-    const embossed = inventory.find(i => i.name === 'EMBOSSED');
-    const pvc = inventory.find(i => i.name === 'PVC (BLUE)');
-    
-    if (embossed) {
-        const newStock = (embossed.stock_quantity || 0) - qty;
-        await supabase.from('inventory').update({ stock_quantity: newStock }).eq('id', embossed.id);
-        embossed.stock_quantity = newStock; // update local state
-    }
-    if (pvc) {
-        const newStock = (pvc.stock_quantity || 0) - qty;
-        await supabase.from('inventory').update({ stock_quantity: newStock }).eq('id', pvc.id);
-        pvc.stock_quantity = newStock; // update local state
+    for (const res of linkedBindingResources) {
+        const item = inventory.find(i => i.id === res.id);
+        if (item) {
+            const newStock = (item.stock_quantity || 0) - qty;
+            await supabase.from('inventory').update({ stock_quantity: newStock }).eq('id', item.id);
+            item.stock_quantity = newStock;
+        }
     }
 }
-
 
 async function loadData() {
     const {data:inv} = await supabase.from('inventory').select('*').order('name'); const {data:cust} = await supabase.from('customers').select('*').order('name');
     inventory = inv || []; customers = cust || []; console.log('DEBUG: Loaded inventory length:', inventory.length);
-    renderBindingOptions(); // populate binding submenu now that inventory is ready
+    await loadBindingSettings();
+    renderBindingOptions(); // populate binding submenu now that inventory and settings are ready
     
         const csel = document.getElementById('pos-customer'); csel.innerHTML = '<option value="">Walk-in</option>';
     customers.forEach(c => csel.innerHTML += `<option value="${c.id}">${c.name}</option>`);
@@ -217,16 +252,48 @@ document.getElementById('quick-pay-cash').addEventListener('click', () => window
 
 
 document.getElementById('quick-log-btn').addEventListener('click', async () => {
-    const amt = parseFloat(document.getElementById('quick-amount').value); if(!amt) return;
-    let item = inventory.find(i => i.name === activeQuick);
-    if (!item) { const {data} = await supabase.from('inventory').insert([{name: activeQuick, type: 'variable', selling_price: 0, is_service: true}]).select().single(); item = data; inventory.push(item); }
-    await supabase.from('sales_log').insert([{item_id: item.id, total_charged: amt, calculated_qty: 1, calculated_profit: amt, cashier_id: currentUser.id, payment_method: quickPay.toLowerCase().replace('-', '')}]);
-      // Auto-deduct linked binding materials
-      if (item.name.toLowerCase().includes('binding')) {
-          await deductBindingMaterials(1);
+      const amt = parseFloat(document.getElementById('quick-amount').value); if(!amt) return;
+
+      let logItem = null, logQty = 1, logProfit = amt, isBinding = (activeQuick === 'Binding Service');
+
+      if (isBinding) {
+          const isNoStock = activeBindingGroup && activeBindingGroup.noStock;
+          const ringItem = activeBindingItem || (activeBindingGroup && activeBindingGroup.items && activeBindingGroup.items[0] ? inventory.find(i => i.id === activeBindingGroup.items[0].id) : null);
+
+          if (ringItem && !isNoStock) {
+              const standardPrice = ringItem.selling_price || 50;
+              logQty = Math.max(1, Math.floor(amt / standardPrice));
+              logItem = ringItem;
+              logProfit = amt - (logItem.buying_price * logQty);
+              // Deduct specific ring stock
+              const newRingStock = (logItem.stock_quantity || 0) - logQty;
+              await supabase.from('inventory').update({ stock_quantity: newRingStock }).eq('id', logItem.id);
+              if (logItem) logItem.stock_quantity = newRingStock;
+          } else {
+              // Tape binding or no item configured — use generic Binding Service item
+              let svcItem = inventory.find(i => i.name === 'Binding Service');
+              if (!svcItem) { const {data} = await supabase.from('inventory').insert([{name: 'Binding Service', type: 'variable', selling_price: 0, is_service: true}]).select().single(); svcItem = data; inventory.push(svcItem); }
+              logItem = svcItem;
+          }
+          // Always deduct linked resources (covers) for any binding job
+          await deductBindingMaterials(logQty);
+      } else {
+          let item = inventory.find(i => i.name === activeQuick);
+          if (!item) { const {data} = await supabase.from('inventory').insert([{name: activeQuick, type: 'variable', selling_price: 0, is_service: true}]).select().single(); item = data; inventory.push(item); }
+          logItem = item;
       }
 
-    document.getElementById('quick-amount').value = ''; if(window.setQuickPayUI) window.setQuickPayUI('M-Pesa'); if(window.setQuickServiceUI) window.setQuickServiceUI('Print / Copy'); fetchTodaysSales(); setTimeout(()=>document.getElementById('quick-amount').focus(), 100);
+      await supabase.from('sales_log').insert([{
+          item_id: logItem.id, total_charged: amt, calculated_qty: logQty,
+          calculated_profit: logProfit, cashier_id: currentUser.id,
+          payment_method: quickPay.toLowerCase().replace('-', '')
+      }]);
+
+      document.getElementById('quick-amount').value = '';
+      if(window.setQuickPayUI) window.setQuickPayUI('M-Pesa');
+      if(window.setQuickServiceUI) window.setQuickServiceUI('Print / Copy');
+      fetchTodaysSales();
+      setTimeout(()=>document.getElementById('quick-amount').focus(), 100);
 });
 
 
