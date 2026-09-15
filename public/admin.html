@@ -86,7 +86,7 @@
 
     <main class="flex-1 overflow-y-auto bg-gray-50">
         <div class="bg-slate-900 text-white shadow-md">
-            <div class="max-w-7xl mx-auto flex">
+            <div class="max-w-7xl mx-auto flex overflow-x-auto">
                 <div class="flex-1 py-4 px-6 text-center border-r border-slate-700">
                     <div class="text-xs font-bold text-slate-400 mb-1 uppercase">Gross Sales</div><div id="hdr-gross" class="text-2xl font-bold">Ksh 0.00</div>
                 </div>
@@ -106,8 +106,8 @@
             <!-- Resources -->
             <div class="bg-white rounded-xl shadow border p-5">
                 <h2 class="text-lg font-bold mb-4 border-b pb-2">Resource Management (Amortized)</h2>
-                <div class="grid grid-cols-5 gap-4 items-end mb-6 bg-slate-50 p-4 rounded border">
-    <div class="col-span-2">
+                <div class="grid grid-cols-1 sm:grid-cols-5 gap-3 items-end mb-6 bg-slate-50 p-4 rounded border">
+    <div class="sm:col-span-2">
         <label class="block text-sm font-semibold mb-1">Inventory Item</label>
         <div class="relative"><div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><svg class="h-4 w-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg></div><input type="text" id="res-item-search" class="w-full pl-9 pr-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Search item..." autocomplete="off"><input type="hidden" id="res-item-id"><div id="res-search-results" class="absolute z-10 w-full bg-white border border-slate-200 mt-1 rounded-md shadow-lg hidden max-h-48 overflow-y-auto"></div></div>
     </div>
@@ -120,7 +120,7 @@
         <input type="number" id="res-cost" class="w-full border rounded px-3 py-2 bg-slate-200" placeholder="Auto" readonly>
     </div>
     <div>
-        <button id="btn-open-res" class="w-full bg-blue-600 text-white font-bold py-2 rounded">Open Item</button>
+        <button id="btn-open-res" class="w-full bg-blue-600 text-white font-bold py-2 rounded text-sm">Open Item</button>
     </div>
 </div>
                 <table class="w-full text-left text-sm"><thead class="bg-slate-50"><tr><th class="py-2 px-3">Item</th><th class="py-2 px-3 text-right">Cost</th><th class="py-2 px-3">Date</th><th class="py-2 px-3 text-center">Action</th></tr></thead><tbody id="res-tbody"></tbody></table>
@@ -129,7 +129,7 @@
             <!-- Overheads -->
             <div class="bg-white rounded-xl shadow border border-l-4 border-l-red-500 p-5">
                 <h2 class="text-lg font-bold text-red-700 mb-4 border-b pb-2">Fixed Overheads</h2>
-                <div class="flex gap-4 items-end">
+                <div class="grid grid-cols-2 sm:flex gap-3 items-end">
                     <div class="flex-1"><label class="block text-xs font-semibold mb-1">Rent</label><input type="number" id="ov-rent" class="w-full border rounded px-3 py-2"></div>
                     <div class="flex-1"><label class="block text-xs font-semibold mb-1">Electricity</label><input type="number" id="ov-elec" class="w-full border rounded px-3 py-2"></div>
                     <div class="flex-1"><label class="block text-xs font-semibold mb-1">Internet</label><input type="number" id="ov-wifi" class="w-full border rounded px-3 py-2"></div>

@@ -97,7 +97,7 @@ function renderGroups() {
                     <input type="checkbox" ${g.noStock ? 'checked' : ''} onchange="toggleNoStock('${g.id}', this.checked)" class="rounded">
                     No ring deducted
                 </label>
-                <button onclick="removeGroup('${g.id}')" class="text-red-400 hover:text-red-600 text-xs font-bold px-2 py-1 rounded hover:bg-red-50 transition-colors">✕ Remove</button>
+                <button onclick="removeGroup('${g.id}')" class="text-red-400 hover:text-red-600 font-black text-base leading-none px-1.5 py-0.5 rounded hover:bg-red-50 transition-colors" title="Remove group">×</button>
             </div>
             <div class="min-h-12 bg-white rounded border border-dashed border-slate-300 p-2 flex flex-wrap gap-1.5 content-start group-drop-zone"
                 data-group-id="${g.id}"
@@ -202,7 +202,7 @@ function renderLinkedResources() {
     list.innerHTML = linkedResources.map(r => `
         <div class="flex items-center justify-between bg-slate-50 border border-slate-200 rounded-lg px-3 py-2">
             <span class="text-sm font-bold text-slate-700">${r.name}</span>
-            <button onclick="removeLinkedResource('${r.id}')" class="text-red-400 hover:text-red-600 text-xs font-bold px-2 py-1 hover:bg-red-50 rounded transition-colors">✕ Remove</button>
+            <button onclick="removeLinkedResource('${r.id}')" class="text-red-400 hover:text-red-600 font-black text-base leading-none px-1.5 py-0.5 rounded hover:bg-red-50 transition-colors" title="Remove">×</button>
         </div>
     `).join('');
 }
