@@ -283,11 +283,19 @@ document.getElementById('quick-log-btn').addEventListener('click', async () => {
           logItem = item;
       }
 
-      await supabase.from('sales_log').insert([{
+      const _qRes = await insertSaleWithOfflineSupport(supabase, {
           item_id: logItem.id, total_charged: amt, calculated_qty: logQty,
           calculated_profit: logProfit, cashier_id: currentUser.id,
           payment_method: quickPay.toLowerCase().replace('-', '')
-      }]);
+      });
+      if (_qRes.offline) {
+          document.getElementById('quick-amount').value = '';
+          if(window.setQuickPayUI) window.setQuickPayUI('M-Pesa');
+          if(window.setQuickServiceUI) window.setQuickServiceUI('Print / Copy');
+          alert('No internet — sale saved locally and will sync when back online.');
+          setTimeout(()=>document.getElementById('quick-amount').focus(), 100);
+          return;
+      }
 
       document.getElementById('quick-amount').value = '';
       if(window.setQuickPayUI) window.setQuickPayUI('M-Pesa');
