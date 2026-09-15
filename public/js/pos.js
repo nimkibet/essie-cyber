@@ -134,7 +134,24 @@ window.toggleLedgerGroup = (key) => {
     }
 };
 
-document.querySelectorAll('.quick-srv-btn').forEach(b => b.addEventListener('click', e => { activeQuick = e.target.dataset.name; }));
+
+window.setQuickServiceUI = function(name) {
+    activeQuick = name;
+    document.querySelectorAll('.quick-srv-btn').forEach(b => {
+        if (b.dataset.name === name) {
+            b.className = 'quick-srv-btn bg-blue-600 text-white py-2 rounded text-sm font-medium shadow-sm transition-all';
+        } else {
+            b.className = 'quick-srv-btn bg-gray-100 text-gray-700 py-2 rounded text-sm font-medium hover:bg-gray-200 transition-all';
+        }
+    });
+};
+
+document.querySelectorAll('.quick-srv-btn').forEach(b => {
+    b.addEventListener('click', e => {
+        window.setQuickServiceUI(e.target.dataset.name);
+    });
+});
+
 
 document.getElementById('quick-pay-mpesa').addEventListener('click', () => window.setQuickPayUI('M-Pesa'));
 document.getElementById('quick-pay-cash').addEventListener('click', () => window.setQuickPayUI('Cash'));
@@ -145,7 +162,7 @@ document.getElementById('quick-log-btn').addEventListener('click', async () => {
     let item = inventory.find(i => i.name === activeQuick);
     if (!item) { const {data} = await supabase.from('inventory').insert([{name: activeQuick, type: 'variable', selling_price: 0, is_service: true}]).select().single(); item = data; inventory.push(item); }
     await supabase.from('sales_log').insert([{item_id: item.id, total_charged: amt, calculated_qty: 1, calculated_profit: amt, cashier_id: currentUser.id, payment_method: quickPay.toLowerCase().replace('-', '')}]);
-    document.getElementById('quick-amount').value = ''; if(window.setQuickPayUI) window.setQuickPayUI('M-Pesa'); fetchTodaysSales(); setTimeout(()=>document.getElementById('quick-amount').focus(), 100);
+    document.getElementById('quick-amount').value = ''; if(window.setQuickPayUI) window.setQuickPayUI('M-Pesa'); if(window.setQuickServiceUI) window.setQuickServiceUI('Print / Copy'); fetchTodaysSales(); setTimeout(()=>document.getElementById('quick-amount').focus(), 100);
 });
 
 
