@@ -25,10 +25,21 @@ let showTapeButton = false;
 let activeBindingItem = null;
 
 async function loadBindingSettings() {
-    const { data: rows } = await supabase.from('settings').select('key, value')
-        .in('key', ['binding_groups', 'binding_linked_resources', 'binding_show_tape']);
+    try {
+        if (!navigator.onLine) throw new Error('Offline');
+        const { data: rows } = await supabase.from('settings').select('key, value')
+            .in('key', ['binding_groups', 'binding_linked_resources', 'binding_show_tape']);
+        if (rows) localStorage.setItem('essie_settings_cache', JSON.stringify(rows));
+        applySettingsRows(rows || []);
+    } catch (e) {
+        const cached = localStorage.getItem('essie_settings_cache');
+        applySettingsRows(cached ? JSON.parse(cached) : []);
+    }
+}
+
+function applySettingsRows(rows) {
     const map = {};
-    (rows || []).forEach(r => map[r.key] = r.value);
+    rows.forEach(r => map[r.key] = r.value);
     bindingGroups = map['binding_groups'] ? JSON.parse(map['binding_groups']) : [];
     showTapeButton = map['binding_show_tape'] === 'true';
     if (map['binding_linked_resources']) {
@@ -56,7 +67,7 @@ function renderBindingOptions() {
     let html = bindingGroups.map(g => `<button onclick="window.setBindingGroup('${g.id}')" class="px-3 py-1.5 rounded text-xs font-bold transition-all ${activeBindingGroup && activeBindingGroup.id === g.id ? 'bg-slate-700 text-white shadow' : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'}">${g.name}</button>`).join('');
 
     if (showTapeButton) {
-        html += `<button onclick="window.setBindingGroup('__tape__')" class="px-3 py-1.5 rounded text-xs font-bold ${activeBindingGroup && activeBindingGroup.id === '__tape__' ? 'bg-slate-600 text-white shadow' : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'}">📌 Tape</button>`;
+        html += `<button onclick="window.setBindingGroup('__tape__')" class="px-3 py-1.5 rounded text-xs font-bold ${activeBindingGroup && activeBindingGroup.id === '__tape__' ? 'bg-slate-600 text-white shadow' : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'}">🏷️ Tape</button>`;
     }
 
     if (activeBindingGroup && activeBindingGroup.id !== '__tape__' && activeBindingGroup.items && activeBindingGroup.items.length > 0) {
@@ -110,12 +121,26 @@ async function deductBindingMaterials(qty) {
 }
 
 async function loadData() {
-    const {data:inv} = await supabase.from('inventory').select('*').order('name'); const {data:cust} = await supabase.from('customers').select('*').order('name');
-    inventory = inv || []; customers = cust || []; console.log('DEBUG: Loaded inventory length:', inventory.length);
+    try {
+        if (!navigator.onLine) throw new Error('Offline');
+        const [{data:inv}, {data:cust}] = await Promise.all([
+            supabase.from('inventory').select('*').order('name'),
+            supabase.from('customers').select('*').order('name')
+        ]);
+        inventory = inv || []; 
+        customers = cust || [];
+        localStorage.setItem('essie_inventory_cache', JSON.stringify(inventory));
+        localStorage.setItem('essie_customers_cache', JSON.stringify(customers));
+    } catch (e) {
+        inventory = JSON.parse(localStorage.getItem('essie_inventory_cache') || '[]');
+        customers = JSON.parse(localStorage.getItem('essie_customers_cache') || '[]');
+        console.warn('Offline mode: Loaded inventory/customers from cache', inventory.length);
+    }
+
     await loadBindingSettings();
     renderBindingOptions(); // populate binding submenu now that inventory and settings are ready
     
-        const csel = document.getElementById('pos-customer'); csel.innerHTML = '<option value="">Walk-in</option>';
+    const csel = document.getElementById('pos-customer'); csel.innerHTML = '<option value="">Walk-in</option>';
     customers.forEach(c => csel.innerHTML += `<option value="${c.id}">${c.name}</option>`);
     
     // Subscribe to real-time inventory updates
