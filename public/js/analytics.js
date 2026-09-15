@@ -11,7 +11,7 @@ async function load() {
     const d = new Date(), ym = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
     let dateFilter = periodStr === 'month' ? ym : d.toISOString().split('T')[0];
     
-    let q = supabase.from('sales_log').select('*, inventory(name), users(username)').eq('is_voided', false);
+    let q = supabase.from('sales_log').select('*, inventory(name), users!sales_log_cashier_id_fkey(username)').eq('is_voided', false);
     if(periodStr === 'month') q = q.gte('timestamp', `${dateFilter}-01T00:00:00Z`);
     else q = q.gte('timestamp', `${dateFilter}T00:00:00Z`);
     
