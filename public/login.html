@@ -31,9 +31,8 @@
                 <div class="w-14 h-14 rounded-2xl bg-gradient-to-tr from-blue-600 to-cyan-500 flex items-center justify-center text-white shadow-lg shadow-blue-500/20 mb-3 text-2xl font-black">EC</div>
                 <h1 class="text-2xl font-black text-slate-900 tracking-tight">Essie Cyber</h1>
             </div>
-            <div class="w-full flex gap-2 p-1 bg-slate-100 rounded-xl mb-5">
-                <button type="button" data-user="cashier" class="user-btn flex-1 py-2 rounded-lg font-semibold text-sm transition flex items-center justify-center gap-1.5 bg-white text-blue-600 shadow-sm">👤 Cashier</button>
-                <button type="button" data-user="admin" class="user-btn flex-1 py-2 rounded-lg font-medium text-sm transition flex items-center justify-center gap-1.5 text-slate-600 hover:text-slate-900">🛡️ Admin</button>
+            <div class="w-full flex gap-2 p-1 bg-slate-100 rounded-xl mb-5 overflow-x-auto" id="user-selector">
+                <div class="text-sm text-center w-full py-2 text-slate-400">Loading users...</div>
             </div>
             <div class="flex justify-center gap-3 mb-6" id="pin-display">
                 <div class="w-4 h-4 rounded-full border-2 border-slate-300 pin-dot"></div>
