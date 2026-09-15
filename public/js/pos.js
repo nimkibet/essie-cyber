@@ -655,12 +655,74 @@ document.getElementById('btn-toggle-ledger').addEventListener('click', () => {
 });
 
 // ─── QUICK EXPENSE LOGGER ─────────────────────────────────────────────────────
+let activeExpenseTab = 'lunch';
+
+// Fetch users for wage dropdown
+async function loadUsersForWage() {
+    const { data } = await supabase.from('users').select('id, username');
+    const sel = document.getElementById('exp-wage-user');
+    if (sel && data) {
+        sel.innerHTML = '<option value="">Select cashier...</option>' + data.map(u => `<option value="${u.username}">${u.username}</option>`).join('');
+    }
+}
+loadUsersForWage();
+
+document.querySelectorAll('.exp-tab').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+        const type = e.target.dataset.type;
+        activeExpenseTab = type;
+        
+        // Reset tabs UI
+        document.querySelectorAll('.exp-tab').forEach(b => {
+            b.className = 'exp-tab flex-1 text-xs py-1 rounded font-bold bg-slate-100 text-slate-600 transition-colors';
+        });
+        e.target.className = 'exp-tab flex-1 text-xs py-1 rounded font-bold bg-slate-700 text-white transition-colors';
+
+        // Toggle fields
+        const wageFields = document.getElementById('exp-wage-fields');
+        const descField = document.getElementById('exp-desc');
+        const amtField = document.getElementById('exp-amount');
+        
+        wageFields.classList.add('hidden');
+        descField.classList.add('hidden');
+        
+        if (type === 'wage') {
+            wageFields.classList.remove('hidden');
+            amtField.placeholder = "Base Wage (Ksh)";
+        } else if (type === 'other') {
+            descField.classList.remove('hidden');
+            descField.placeholder = "Description...";
+            amtField.placeholder = "Amount (Ksh)";
+        } else {
+            amtField.placeholder = "Amount (Ksh)";
+        }
+    });
+});
+
 document.getElementById('btn-log-expense').addEventListener('click', async () => {
-    const desc = document.getElementById('exp-desc').value.trim();
-    const amt = parseFloat(document.getElementById('exp-amount').value);
-    if (!desc || !amt) return alert('Enter description and amount.');
+    let desc = '';
+    let amt = parseFloat(document.getElementById('exp-amount').value);
+    
+    if (activeExpenseTab === 'lunch') desc = 'Lunch';
+    else if (activeExpenseTab === 'transport') desc = 'Transport';
+    else if (activeExpenseTab === 'wage') {
+        const user = document.getElementById('exp-wage-user').value;
+        const extra = parseFloat(document.getElementById('exp-wage-extra').value) || 0;
+        if (!user) return alert('Select a cashier for the wage log.');
+        desc = `Wage - ${user}`;
+        if (extra > 0) desc += ` (+${extra} extra)`;
+        if (extra < 0) desc += ` (${extra} deduction)`;
+        amt = (amt || 0) + extra;
+    }
+    else if (activeExpenseTab === 'other') {
+        desc = document.getElementById('exp-desc').value.trim();
+    }
+
+    if (!desc || isNaN(amt) || amt <= 0) return alert('Enter valid details and amount.');
+    
     const btn = document.getElementById('btn-log-expense');
     btn.disabled = true; btn.textContent = 'Logging...';
+    
     try {
         const { error } = await supabase.from('overhead_entries').insert([{
             period: new Date().toISOString().slice(0, 7),
@@ -669,8 +731,10 @@ document.getElementById('btn-log-expense').addEventListener('click', async () =>
             rent: 0, electricity: 0, wifi_internet: 0
         }]);
         if (error) throw error;
+        
         document.getElementById('exp-desc').value = '';
         document.getElementById('exp-amount').value = '';
+        document.getElementById('exp-wage-extra').value = '';
         alert('Expense logged: ' + desc + ' - Ksh ' + amt);
     } catch(err) {
         alert('Error: ' + err.message);

@@ -173,9 +173,23 @@
                 <div class="bg-white rounded-xl shadow border border-gray-200 p-4">
                     <h2 class="text-sm font-bold text-gray-700 mb-3">⚡ Quick Expense / Open Resource</h2>
                     <div class="grid grid-cols-2 gap-3">
-                        <!-- Quick Expense -->
-                        <div class="border border-orange-200 rounded-lg p-3 bg-slate-50">
-                            <div class="text-xs font-bold text-orange-700 mb-2">Log Expense</div>
+                                                <!-- Log Expense -->
+                        <div class="border border-slate-200 rounded-lg p-3 bg-slate-50 flex flex-col">
+                            <div class="text-xs font-bold text-slate-600 mb-2">Log Expense</div>
+                            <div class="flex gap-1 mb-2">
+                                <button class="exp-tab flex-1 text-xs py-1 rounded font-bold bg-slate-700 text-white transition-colors" data-type="lunch">Lunch</button>
+                                <button class="exp-tab flex-1 text-xs py-1 rounded font-bold bg-slate-200 text-slate-600 transition-colors" data-type="transport">Trans.</button>
+                                <button class="exp-tab flex-1 text-xs py-1 rounded font-bold bg-slate-200 text-slate-600 transition-colors" data-type="wage">Wage</button>
+                                <button class="exp-tab flex-1 text-xs py-1 rounded font-bold bg-slate-200 text-slate-600 transition-colors" data-type="other">Other</button>
+                            </div>
+                            <div id="exp-wage-fields" class="hidden mb-2 space-y-1">
+                                <select id="exp-wage-user" class="w-full border border-slate-300 rounded px-2 py-1 text-sm bg-white focus:outline-none focus:ring-1 focus:ring-blue-400"></select>
+                                <input type="number" id="exp-wage-extra" placeholder="Extra (Ksh)" class="w-full border border-slate-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-blue-400">
+                            </div>
+                            <input type="text" id="exp-desc" placeholder="Description..." class="hidden w-full border border-slate-300 rounded px-2 py-1.5 text-sm mb-2 focus:outline-none focus:ring-1 focus:ring-blue-400">
+                            <input type="number" id="exp-amount" placeholder="Amount (Ksh)" class="w-full border border-slate-300 rounded px-2 py-1.5 text-sm mb-2 mt-auto focus:outline-none focus:ring-1 focus:ring-blue-400">
+                            <button id="btn-log-expense" class="w-full bg-slate-700 hover:bg-slate-800 text-white py-1.5 rounded text-sm font-bold mt-auto">Log Expense</button>
+                        </div>
                             <input type="text" id="exp-desc" placeholder="Description e.g. Transport" class="w-full border border-orange-200 rounded px-2 py-1.5 text-sm mb-2 focus:outline-none focus:ring-1 focus:ring-orange-400">
                             <input type="number" id="exp-amount" placeholder="Amount (Ksh)" class="w-full border border-orange-200 rounded px-2 py-1.5 text-sm mb-2 focus:outline-none focus:ring-1 focus:ring-orange-400">
                             <button id="btn-log-expense" class="w-full bg-slate-500 hover:bg-orange-600 text-white py-1.5 rounded text-sm font-bold">Log Expense</button>
