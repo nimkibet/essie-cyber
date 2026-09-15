@@ -25,30 +25,37 @@ async function load() {
     if (periodStr === 'month') resQ = resQ.gte('opened_at', `${dateFilter}-01T00:00:00Z`);
     else resQ = resQ.gte('opened_at', `${dateFilter}T00:00:00Z`);
 
-    // 3. Fetch Logged Expenses (Overheads)
-    // overhead_entries stores period as 'YYYY-MM'. If 'today', we look at created_at
-    let expQ = supabase.from('overhead_entries').select('other_fixed, rent, electricity, wifi_internet, created_at');
-    if (periodStr === 'month') expQ = expQ.eq('period', ym);
-    else expQ = expQ.gte('created_at', `${dateFilter}T00:00:00Z`);
+    // 3. Fetch Fixed Overheads
+    let ovQ = supabase.from('overhead_entries').select('rent, electricity, wifi_internet');
+    if (periodStr === 'month') ovQ = ovQ.eq('period', ym);
+    else ovQ = ovQ.gte('created_at', `${dateFilter}T00:00:00Z`);
 
-    const [ {data: s}, {data: resData}, {data: expData} ] = await Promise.all([q, resQ, expQ]);
+    // 4. Fetch Daily Expenses
+    let expQ = supabase.from('expenses').select('amount');
+    if (periodStr === 'month') expQ = expQ.gte('timestamp', `${dateFilter}-01T00:00:00Z`);
+    else expQ = expQ.gte('timestamp', `${dateFilter}T00:00:00Z`);
+
+    const [ {data: s}, {data: resData}, {data: ovData}, {data: expData} ] = await Promise.all([q, resQ, ovQ, expQ]);
     
     currentSalesData = s || [];
     const resources = resData || [];
-    const expenses = expData || [];
+    const overheads = ovData || [];
+    const dailyExpenses = expData || [];
+
+    const includeBulk = document.getElementById('chk-include-bulk').checked;
 
     // Calculate Expenses
     let totalExpenses = 0;
-    resources.forEach(r => { totalExpenses += (r.cost || 0); });
     
-    expenses.forEach(e => {
-        if (periodStr === 'month') {
-            totalExpenses += (e.other_fixed || 0) + (e.rent || 0) + (e.electricity || 0) + (e.wifi_internet || 0);
-        } else {
-            // For 'today', usually rent/electricity isn't factored per day, but 'other_fixed' (quick expenses) should be.
-            totalExpenses += (e.other_fixed || 0);
-        }
-    });
+    // Always include daily POS expenses
+    dailyExpenses.forEach(e => totalExpenses += (e.amount || 0));
+
+    if (includeBulk) {
+        resources.forEach(r => totalExpenses += (r.cost || 0));
+        overheads.forEach(o => {
+            totalExpenses += (o.rent || 0) + (o.electricity || 0) + (o.wifi_internet || 0);
+        });
+    }
 
     document.getElementById('kpi-tx').innerText = currentSalesData.length;
     let rev = 0, grossProf = 0;
