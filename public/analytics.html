@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Analytics | Essie Cyber</title>
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#1e293b">
+    <script src="https://cdn.tailwindcss.com"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
+    <style>
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #f1f5f9; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        .keypad-btn:active { transform: scale(0.95); background-color: #e2e8f0; }
+        .pin-dot { transition: all 0.2s ease; }
+    </style>
+
+    <style>
+        body { animation: fadeIn 0.2s ease-in-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(2px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+
+</head>
+<body class="bg-gray-100 h-screen flex flex-col font-sans text-gray-800 overflow-hidden">
+
+    <nav class="bg-slate-900 text-white shadow-md flex-shrink-0">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-14">
+                <div class="flex items-center">
+                    <span class="text-xl font-bold text-blue-400">Essie Cyber</span>
+                </div>
+                <div class="flex space-x-2 overflow-x-auto">
+                    <a href="/pos.html" class="px-3 py-1.5 text-sm font-medium rounded bg-slate-700 hover:bg-slate-600">POS</a>
+                    <a href="/inventory.html" class="px-3 py-1.5 text-sm font-medium rounded admin-only hidden bg-slate-700 hover:bg-slate-600">Inventory</a>
+                    <a href="/customers.html" class="px-3 py-1.5 text-sm font-medium rounded admin-only hidden bg-slate-700 hover:bg-slate-600">Customers</a>
+                    <a href="/users.html" class="px-3 py-1.5 text-sm font-medium rounded admin-only hidden bg-slate-700 hover:bg-slate-600">Users</a>
+                    <a href="/admin.html" class="px-3 py-1.5 text-sm font-medium rounded admin-only hidden bg-slate-700 hover:bg-slate-600">Admin / Resources</a>
+                    <a href="/analytics.html" class="px-3 py-1.5 text-sm font-medium rounded admin-only hidden bg-blue-600">Analytics</a>
+                    <button id="btn-logout" class="px-3 py-1.5 text-sm font-medium rounded border border-slate-600 hover:bg-slate-800 text-red-400">Logout</button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <main class="flex-1 overflow-y-auto p-6 max-w-7xl mx-auto w-full">
+        <div class="bg-white p-5 rounded-xl shadow flex justify-between items-center border mb-6">
+            <div><h1 class="text-2xl font-bold">Analytics</h1></div>
+            <div class="flex items-center gap-3"><button id="btn-dl-report" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-4 py-2 rounded-lg shadow transition-colors">Download PDF Report</button><select id="ana-period" class="bg-slate-100 border rounded px-4 py-2 font-semibold"><option value="today">Today</option><option value="month">This Month</option></select></div></div>
+        </div>
+        <div class="grid grid-cols-3 gap-4 mb-6">
+            <div class="bg-white p-5 rounded-xl shadow text-center border"><div class="text-xs font-bold text-slate-500 uppercase">Transactions</div><div id="kpi-tx" class="text-4xl font-black">0</div></div>
+            <div class="bg-white p-5 rounded-xl shadow text-center border"><div class="text-xs font-bold text-slate-500 uppercase">Revenue</div><div id="kpi-rev" class="text-3xl font-black text-emerald-600">Ksh 0</div></div>
+            <div class="bg-white p-5 rounded-xl shadow text-center border"><div class="text-xs font-bold text-slate-500 uppercase">Profit</div><div id="kpi-profit" class="text-3xl font-black text-blue-600">Ksh 0</div></div>
+        </div>
+        <div class="bg-white p-5 rounded-xl shadow border"><h2 class="text-lg font-bold mb-4">Top Items</h2><table class="w-full text-left text-sm"><thead class="bg-slate-50"><tr><th class="py-2 px-3">Item</th><th class="py-2 px-3 text-right">Qty</th></tr></thead><tbody id="top-tbody"></tbody></table></div>
+    </main>
+    <script type="module" src="/js/analytics.js"></script>
+</body></html>
+

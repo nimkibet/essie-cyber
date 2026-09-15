@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>POS | Essie Cyber</title>
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#1e293b">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <style>
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #f1f5f9; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        .keypad-btn:active { transform: scale(0.95); background-color: #e2e8f0; }
+        .pin-dot { transition: all 0.2s ease; }
+    </style>
+
+    <style>
+        body { animation: fadeIn 0.2s ease-in-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(2px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script></head>
+<body class="bg-gray-100 h-screen flex flex-col font-sans text-gray-800 overflow-hidden">
+
+    <nav class="bg-slate-900 text-white shadow-md flex-shrink-0">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-14">
+                <div class="flex items-center">
+                    <span class="text-xl font-bold text-blue-400">Essie Cyber</span>
+                </div>
+                <div class="flex space-x-2 overflow-x-auto">
+                    <a href="/pos.html" class="px-3 py-1.5 text-sm font-medium rounded bg-blue-600">POS</a>
+                    <a href="/inventory.html" class="px-3 py-1.5 text-sm font-medium rounded admin-only hidden bg-slate-700 hover:bg-slate-600">Inventory</a>
+                    <a href="/customers.html" class="px-3 py-1.5 text-sm font-medium rounded admin-only hidden bg-slate-700 hover:bg-slate-600">Customers</a>
+                    <a href="/users.html" class="px-3 py-1.5 text-sm font-medium rounded admin-only hidden bg-slate-700 hover:bg-slate-600">Users</a>
+                    <a href="/admin.html" class="px-3 py-1.5 text-sm font-medium rounded admin-only hidden bg-slate-700 hover:bg-slate-600">Admin / Resources</a>
+                    <a href="/analytics.html" class="px-3 py-1.5 text-sm font-medium rounded admin-only hidden bg-slate-700 hover:bg-slate-600">Analytics</a>
+                    <button id="btn-logout" class="px-3 py-1.5 text-sm font-medium rounded border border-slate-600 hover:bg-slate-800 text-red-400">Logout</button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <main class="flex-1 overflow-y-auto p-4">
+        <div class="flex flex-col lg:flex-row gap-6 max-w-7xl mx-auto pb-4">
+            <!-- Left: Entry Forms -->
+            <div class="w-full lg:w-5/12 flex flex-col gap-4">
+                <div class="bg-white rounded-xl shadow border border-gray-200 p-5">
+                    <h2 class="text-lg font-bold text-gray-800 mb-3">Quick Add</h2>
+                    <div class="grid grid-cols-3 gap-2 mb-4">
+                        <button class="quick-srv-btn bg-blue-600 text-white py-2 rounded text-sm font-medium" data-name="Print / Copy">Print / Copy</button>
+                        <button class="quick-srv-btn bg-gray-100 text-gray-700 py-2 rounded text-sm font-medium" data-name="Typesetting">Typesetting</button>
+                        <button class="quick-srv-btn bg-gray-100 text-gray-700 py-2 rounded text-sm font-medium" data-name="Binding Service">Binding</button>
+                    </div>
+                    <div class="flex gap-2 mb-4">
+                        <button id="quick-pay-mpesa" class="flex-1 bg-emerald-700 text-white py-2 rounded font-medium">📱 M-Pesa</button>
+                        <button id="quick-pay-cash" class="flex-1 bg-gray-200 text-gray-700 py-2 rounded font-medium">💵 Cash</button>
+                    </div>
+                    <div class="flex gap-2">
+                        <input type="number" id="quick-amount" class="flex-1 border border-gray-300 rounded px-3 py-2 font-bold text-lg" placeholder="Amount (Ksh)">
+                        <button id="quick-log-btn" class="bg-blue-600 text-white px-4 py-2 rounded font-bold">✓ Log</button>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-xl shadow border border-gray-200 p-5">
+                    <div class="flex justify-between items-center mb-4">
+    <h2 class="text-lg font-bold text-gray-800">Main Sale Form</h2>
+    <div class="flex items-center bg-gray-100 rounded-lg p-1">
+        <button id="mode-direct" class="px-3 py-1 text-sm font-bold bg-white shadow-sm rounded-md text-blue-600 transition-all">Direct Sale</button>
+        <button id="mode-doc" class="px-3 py-1 text-sm font-bold text-gray-500 hover:text-gray-700 rounded-md transition-all">Quote/Receipt</button>
+    </div>
+</div>
+                    <div class="relative mb-4">
+    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+        <svg class="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+    </div>
+    <input type="text" id="pos-item-search" class="w-full pl-10 pr-3 py-3 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 font-bold" placeholder="Search product or service..." autocomplete="off"><input type="hidden" id="pos-item-id">
+    <div id="pos-search-results" class="absolute z-10 w-full bg-white border border-gray-200 mt-1 rounded-md shadow-lg hidden max-h-60 overflow-y-auto"></div>
+</div>
+                    
+                    <div id="kyocera-fields" class="hidden p-3 bg-blue-50 border border-blue-100 rounded-lg mb-4">
+                        <h3 class="text-xs font-bold text-blue-800 uppercase mb-2">Kyocera Details</h3>
+                        <div class="grid grid-cols-2 gap-3">
+                            <div><label class="text-xs">Pages</label><input type="number" id="kyo-pages" class="w-full border rounded px-2" value="1"></div>
+                            <div><label class="text-xs">Cost/Page</label><input type="number" id="kyo-cost-pp" class="w-full border rounded px-2" value="2.5"></div>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4 mb-4">
+                        <div>
+                            <label class="block text-sm font-semibold mb-1">Quantity</label>
+                            <div class="flex"><button id="qty-minus" class="bg-gray-200 px-3 py-2 rounded-l">-</button><input type="number" id="pos-qty" class="w-full text-center border-y py-2 font-bold" value="1"><button id="qty-plus" class="bg-gray-200 px-3 py-2 rounded-r">+</button></div>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-semibold text-blue-600 mb-1">Total (Ksh)</label>
+                            <input type="number" id="pos-total" class="w-full border border-blue-300 rounded px-3 py-2 font-bold text-lg bg-blue-50">
+                        </div>
+                    </div>
+                    
+                    <select id="pos-customer" class="w-full border border-gray-300 rounded px-3 py-2 mb-4 bg-gray-50"><option value="">Walk-in</option></select>
+                    
+<div id="direct-actions" class="flex gap-2">
+    <button id="main-pay-mpesa" class="flex-1 bg-emerald-700 text-white py-2 rounded font-medium shadow">M-Pesa</button>
+    <button id="main-pay-cash" class="flex-1 bg-gray-200 text-gray-700 py-2 rounded font-medium shadow">Cash</button>
+</div>
+<div id="doc-actions" class="hidden flex gap-2">
+    <button id="btn-add-to-doc" class="w-full bg-blue-600 text-white py-2 rounded font-bold shadow">Add to Document</button>
+</div>
+
+<!-- Temporary Document Cart -->
+<div id="doc-cart-panel" class="hidden mt-4 pt-4 border-t border-gray-200">
+    <h3 class="text-sm font-bold text-gray-700 mb-2">Document Items</h3>
+    <div class="bg-gray-50 border rounded-lg max-h-40 overflow-y-auto mb-2">
+        <table class="w-full text-xs text-left">
+            <tbody id="doc-cart-tbody" class="divide-y divide-gray-200"></tbody>
+        </table>
+    </div>
+    <div class="flex justify-between items-center font-bold text-sm mb-3 text-gray-800">
+        <span>Total:</span>
+        <span id="doc-cart-total">Ksh 0.00</span>
+    </div>
+    <div class="flex gap-2">
+        <button id="btn-dl-quote" class="flex-1 border border-indigo-600 text-indigo-600 hover:bg-indigo-50 py-1.5 rounded text-sm font-bold transition">Quote PDF</button>
+        <button id="btn-receipt-mpesa" class="flex-1 bg-green-600 hover:bg-green-700 text-white py-1.5 rounded text-sm font-bold shadow transition">Receipt (M-Pesa)</button><button id="btn-receipt-cash" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-1.5 rounded text-sm font-bold shadow transition">Receipt (Cash)</button>
+        <button id="btn-clear-doc" class="px-2 text-red-500 hover:text-red-700 font-bold" title="Clear">&times;</button>
+    </div>
+</div>
+
+                </div>
+            </div>
+
+            <!-- Right: Ledger -->
+            <div class="w-full lg:w-7/12 flex flex-col gap-4">
+                <div class="bg-white rounded-xl shadow border border-gray-200 p-4">
+                    <div class="flex justify-between items-center mb-3">
+                        <h2 class="text-lg font-bold text-gray-800">Financial Ledger (Today)</h2>
+                    </div>
+                    <div class="flex justify-end gap-6 border-t pt-3">
+                        <div class="text-sm"><span class="font-bold text-emerald-700">M-Pesa:</span> <span id="lbl-mpesa">Ksh 0.00</span></div>
+                        <div class="text-sm"><span class="font-bold text-blue-600">Cash:</span> <span id="lbl-cash">Ksh 0.00</span></div>
+                    </div>
+                </div>
+                <div class="bg-white rounded-xl shadow border flex-1 flex flex-col overflow-hidden min-h-[300px]">
+                    <div class="flex-1 overflow-auto">
+                        <table class="w-full text-left">
+                            <thead class="bg-gray-100 sticky top-0 text-sm text-gray-600">
+                                <tr><th class="py-3 px-4 border-b">Time</th><th class="py-3 px-4 border-b">Item</th><th class="py-3 px-4 border-b text-center">Qty</th><th class="py-3 px-4 border-b text-right">Sales</th><th class="py-3 px-4 border-b text-right">Method</th><th class="py-3 px-4 border-b text-center">Act</th></tr>
+                            </thead>
+                            <tbody id="sales-tbody" class="text-sm divide-y divide-gray-100"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+    <script type="module" src="/js/pos.js"></script>
+</body></html>
+
+
+

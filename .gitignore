@@ -1,0 +1,6 @@
+﻿node_modules/
+.env*
+SUPABASE_CREDENTIALS.txt
+fix-rls.py
+fix_policies.js
+run_migration.js

@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login | Essie Cyber</title>
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#1e293b">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <style>
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #f1f5f9; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        .keypad-btn:active { transform: scale(0.95); background-color: #e2e8f0; }
+        .pin-dot { transition: all 0.2s ease; }
+    </style>
+
+    <style>
+        body { animation: fadeIn 0.2s ease-in-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(2px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+
+</head>
+<body class="bg-gray-100 h-screen flex flex-col font-sans text-gray-800 overflow-hidden">
+
+    <div class="h-full flex flex-col items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-blue-950 p-4">
+        <div class="w-full max-w-sm bg-white rounded-3xl shadow-xl border border-slate-100 p-6 md:p-8 flex flex-col items-center">
+            <div class="flex flex-col items-center mb-6">
+                <div class="w-14 h-14 rounded-2xl bg-gradient-to-tr from-blue-600 to-cyan-500 flex items-center justify-center text-white shadow-lg shadow-blue-500/20 mb-3 text-2xl font-black">EC</div>
+                <h1 class="text-2xl font-black text-slate-900 tracking-tight">Essie Cyber</h1>
+            </div>
+            <div class="w-full flex gap-2 p-1 bg-slate-100 rounded-xl mb-5">
+                <button type="button" data-user="cashier" class="user-btn flex-1 py-2 rounded-lg font-semibold text-sm transition flex items-center justify-center gap-1.5 bg-white text-blue-600 shadow-sm">👤 Cashier</button>
+                <button type="button" data-user="admin" class="user-btn flex-1 py-2 rounded-lg font-medium text-sm transition flex items-center justify-center gap-1.5 text-slate-600 hover:text-slate-900">🛡️ Admin</button>
+            </div>
+            <div class="flex justify-center gap-3 mb-6" id="pin-display">
+                <div class="w-4 h-4 rounded-full border-2 border-slate-300 pin-dot"></div>
+                <div class="w-4 h-4 rounded-full border-2 border-slate-300 pin-dot"></div>
+                <div class="w-4 h-4 rounded-full border-2 border-slate-300 pin-dot"></div>
+                <div class="w-4 h-4 rounded-full border-2 border-slate-300 pin-dot"></div>
+            </div>
+            <div id="login-error" class="w-full mb-4 px-3 py-2 bg-red-50 border border-red-200 rounded-xl flex items-center gap-2 text-xs text-red-600 hidden">
+                ⚠️ <span id="login-error-msg">Invalid credentials</span>
+            </div>
+            <div class="grid grid-cols-3 gap-3 w-full mb-6">
+                <button class="keypad-btn h-14 rounded-2xl bg-slate-50 border border-slate-100 text-xl font-semibold text-slate-700 shadow-sm" data-val="1">1</button>
+                <button class="keypad-btn h-14 rounded-2xl bg-slate-50 border border-slate-100 text-xl font-semibold text-slate-700 shadow-sm" data-val="2">2</button>
+                <button class="keypad-btn h-14 rounded-2xl bg-slate-50 border border-slate-100 text-xl font-semibold text-slate-700 shadow-sm" data-val="3">3</button>
+                <button class="keypad-btn h-14 rounded-2xl bg-slate-50 border border-slate-100 text-xl font-semibold text-slate-700 shadow-sm" data-val="4">4</button>
+                <button class="keypad-btn h-14 rounded-2xl bg-slate-50 border border-slate-100 text-xl font-semibold text-slate-700 shadow-sm" data-val="5">5</button>
+                <button class="keypad-btn h-14 rounded-2xl bg-slate-50 border border-slate-100 text-xl font-semibold text-slate-700 shadow-sm" data-val="6">6</button>
+                <button class="keypad-btn h-14 rounded-2xl bg-slate-50 border border-slate-100 text-xl font-semibold text-slate-700 shadow-sm" data-val="7">7</button>
+                <button class="keypad-btn h-14 rounded-2xl bg-slate-50 border border-slate-100 text-xl font-semibold text-slate-700 shadow-sm" data-val="8">8</button>
+                <button class="keypad-btn h-14 rounded-2xl bg-slate-50 border border-slate-100 text-xl font-semibold text-slate-700 shadow-sm" data-val="9">9</button>
+                <button class="keypad-btn h-14 rounded-2xl bg-slate-100 text-slate-600 font-bold" data-val="clear">C</button>
+                <button class="keypad-btn h-14 rounded-2xl bg-slate-50 border border-slate-100 text-xl font-semibold text-slate-700 shadow-sm" data-val="0">0</button>
+                <button class="keypad-btn h-14 rounded-2xl bg-slate-100 text-slate-600 font-bold" data-val="back">⌫</button>
+            </div>
+            <button id="btn-login-submit" class="w-full h-14 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-base transition flex items-center justify-center shadow-lg">Sign In</button>
+        </div>
+    </div>
+    <script type="module" src="/js/login.js"></script>
+</body></html>

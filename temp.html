@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Essie Cyber POS</title>
+    
+    <!-- PWA Settings -->
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#1e293b">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    
+    <!-- Tailwind CSS (CDN for speed) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- PDF Generation -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    
+    <style>
+        /* Hide views by default */
+        .view-section { display: none; }
+        .view-section.active { display: block; }
+        
+        /* Custom scrollbar for POS ledger */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #f1f5f9; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        
+        /* Keyboard shortcut focus styling */
+        *:focus-visible { outline: 2px solid #3b82f6; outline-offset: 2px; }
+    </style>
+<script>if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');</script></head>
+<body class="bg-gray-100 h-screen overflow-hidden flex flex-col font-sans text-gray-800">
+
+    <!-- ============================================== -->
+    <!-- LOGIN VIEW                                     -->
+    <!-- ============================================== -->
+    <div id="login-view" class="view-section h-full flex items-center justify-center bg-slate-900">
+        <div class="bg-white p-8 rounded-xl shadow-2xl w-full max-w-sm">
+            <div class="text-center mb-8">
+                <div class="bg-blue-600 text-white w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl font-bold">EC</div>
+                <h1 class="text-2xl font-bold text-gray-900">Essie Cyber</h1>
+                <p class="text-gray-500 text-sm">Enter your PIN to access POS</p>
+            </div>
+            
+            <form id="login-form" class="space-y-6">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Username</label>
+                    <input type="text" id="login-username" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" required autofocus autocomplete="off">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Security PIN</label>
+                    <input type="password" id="login-pin" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 tracking-widest text-center text-xl" required pattern="[0-9]*" inputmode="numeric">
+                </div>
+                <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg transition-colors">
+                    Unlock System
+                </button>
+                <div id="login-error" class="text-red-500 text-sm text-center hidden">Invalid credentials.</div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ============================================== -->
+    <!-- APP SHELL (Navbar)                             -->
+    <!-- ============================================== -->
+    <nav id="app-nav" class="bg-slate-900 text-white shadow-md hidden flex-shrink-0">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-14">
+                <div class="flex items-center">
+                    <span class="text-xl font-bold text-blue-400">Essie Cyber</span>
+                    <span class="ml-2 text-slate-400 text-sm" id="nav-title">/ POS</span>
+                </div>
+                <div class="flex space-x-2">
+                    <button id="nav-btn-admin" class="px-3 py-1.5 text-sm font-medium rounded bg-blue-600 hover:bg-blue-700 admin-only hidden">admin (admin)</button>
+                    <button id="nav-btn-pos" class="px-3 py-1.5 text-sm font-medium rounded bg-slate-700 hover:bg-slate-600">POS</button>
+                    <button id="nav-btn-inventory" class="px-3 py-1.5 text-sm font-medium rounded bg-slate-700 hover:bg-slate-600 admin-only hidden">Inventory</button>
+                    <button id="nav-btn-analytics" class="px-3 py-1.5 text-sm font-medium rounded bg-slate-700 hover:bg-slate-600 admin-only hidden">Analytics</button>
+                    <button id="nav-btn-logout" class="px-3 py-1.5 text-sm font-medium rounded border border-slate-600 hover:bg-slate-800 text-red-400">Logout</button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content Area -->
+    <main id="app-main" class="flex-1 overflow-hidden hidden bg-gray-100">
+        <!-- Views will be injected or toggled here -->
+        
+        <!-- POS VIEW -->
+        <div id="pos-view" class="view-section h-full p-4 overflow-y-auto">
+            <!-- Will be populated by pos.js -->
+        </div>
+        
+        <!-- ADMIN VIEW -->
+        <div id="admin-view" class="view-section h-full overflow-y-auto bg-gray-50">
+            <!-- Will be populated by admin.js -->
+        </div>
+        
+        <!-- ANALYTICS VIEW -->
+        <div id="analytics-view" class="view-section h-full p-4 overflow-y-auto">
+            <!-- Will be populated by analytics.js -->
+        </div>
+    </main>
+
+    <!-- Global App JS -->
+    <script type="module" src="/js/app.js"></script>
+</body>
+</html>
