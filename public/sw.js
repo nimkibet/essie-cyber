@@ -1,4 +1,4 @@
-const CACHE_NAME = 'essie-cyber-v44-multi';
+const CACHE_NAME = 'essie-cyber-v45-multi';
 
 // Only pre-cache the offline fallback page at install time.
 // Everything else gets cached as the user visits it (cache-on-navigate).
@@ -22,22 +22,23 @@ self.addEventListener('activate', (e) => {
 self.addEventListener('fetch', (e) => {
     const url = new URL(e.request.url);
 
-    // Never intercept Supabase or CDN calls
-    if (!url.hostname.includes(self.location.hostname) && url.origin !== self.location.origin) return;
-    if (url.hostname.includes('supabase.co')) return;
-    if (url.hostname.includes('cdn.')) return;
-    if (url.hostname.includes('jsdelivr') || url.hostname.includes('cdnjs') || url.hostname.includes('tailwind')) return;
+    // Never intercept Supabase API calls (data) or non-GET requests
+    if (url.hostname.includes('supabase.co') || e.request.method !== 'GET') return;
 
     const isNavigation = e.request.mode === 'navigate';
-    const isAsset = /\.(js|css|png|jpg|svg|ico|json|woff2?)$/.test(url.pathname);
+    const isAsset = /\.(js|css|png|jpg|svg|ico|json|woff2?)$/i.test(url.pathname) 
+                    || url.hostname.includes('cdn') 
+                    || url.hostname.includes('tailwind') 
+                    || url.hostname.includes('jsdelivr') 
+                    || url.hostname.includes('cdnjs');
 
     e.respondWith(
         caches.open(CACHE_NAME).then(cache =>
             cache.match(e.request).then(cached => {
 
                 const networkFetch = fetch(e.request).then(res => {
-                    // Cache successful same-origin responses
-                    if (res.ok && (isNavigation || isAsset)) {
+                    // Only cache successful responses (allow opaque responses from CDNs too, res.type === 'opaque')
+                    if (res && (res.ok || res.type === 'opaque') && (isNavigation || isAsset)) {
                         cache.put(e.request, res.clone());
                     }
                     return res;
@@ -51,16 +52,12 @@ self.addEventListener('fetch', (e) => {
                     });
                 }
 
-                if (isAsset) {
-                    // Cache first for JS/CSS; update in background
-                    if (cached) {
-                        networkFetch.catch(() => {}); // background update, ignore errors
-                        return cached;
-                    }
-                    return networkFetch.catch(() => new Response('', { status: 408 }));
+                // Cache first for JS/CSS; update in background
+                if (cached) {
+                    networkFetch.catch(() => {}); // background update, ignore errors
+                    return cached;
                 }
-
-                return networkFetch.catch(() => cached || new Response('', { status: 408 }));
+                return networkFetch.catch(() => new Response('', { status: 408 }));
             })
         )
     );
