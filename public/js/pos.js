@@ -523,7 +523,7 @@ qresInput.addEventListener('input', () => {
 window.selectQRes = (id, name, bp) => {
     document.getElementById('qres-item-id').value = id;
     document.getElementById('qres-search').value = name;
-    document.getElementById('qres-cost').value = bp;
+    
     qresResults.classList.add('hidden');
 };
 
@@ -536,9 +536,13 @@ document.addEventListener('click', e => {
 document.getElementById('btn-open-resource').addEventListener('click', async () => {
     const itemId = document.getElementById('qres-item-id').value;
     const qty = parseInt(document.getElementById('qres-qty').value || 1);
-    const cost = parseFloat(document.getElementById('qres-cost').value || 0);
     const name = document.getElementById('qres-search').value;
     if (!itemId || qty < 1) return alert('Select an item and enter quantity.');
+    
+    // Retrieve buying price automatically
+    const selectedItem = inventory.find(i => i.id === itemId);
+    const costPerUnit = selectedItem ? selectedItem.buying_price : 0;
+    
     const btn = document.getElementById('btn-open-resource');
     btn.disabled = true; btn.textContent = 'Opening...';
     try {
@@ -546,7 +550,7 @@ document.getElementById('btn-open-resource').addEventListener('click', async () 
             item_id: itemId,
             name: name,
             units: qty,
-            cost: cost * qty,
+            cost: costPerUnit * qty,
             status: 'active',
             opened_at: new Date().toISOString()
         }]);
@@ -554,7 +558,7 @@ document.getElementById('btn-open-resource').addEventListener('click', async () 
         document.getElementById('qres-search').value = '';
         document.getElementById('qres-item-id').value = '';
         document.getElementById('qres-qty').value = 1;
-        document.getElementById('qres-cost').value = '';
+        
         alert('Resource opened: ' + name + ' x' + qty);
     } catch(err) {
         alert('Error: ' + err.message);
