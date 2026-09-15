@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>POS | Essie Cyber</title>
     <link rel="manifest" href="/manifest.json">
     <meta name="theme-color" content="#1e293b">
@@ -31,25 +31,64 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script></head>
 <body class="bg-gray-100 h-screen flex flex-col font-sans text-gray-800 overflow-hidden">
 
-    <nav class="bg-slate-900 text-white shadow-md flex-shrink-0">
+    <nav class="bg-slate-900 text-white shadow-md flex-shrink-0 relative z-50">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex items-center justify-between h-14">
                 <div class="flex items-center">
                     <span class="text-xl font-bold text-blue-400">Essie Cyber</span>
                 </div>
-                <div class="flex space-x-2 overflow-x-auto">
+                <!-- Mobile menu button -->
+                <div class="flex md:hidden">
+                    <button id="mobile-menu-btn" class="text-gray-300 hover:text-white focus:outline-none p-2">
+                        <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
+                        </svg>
+                    </button>
+                </div>
+                <!-- Desktop menu -->
+                <div class="hidden md:flex space-x-2">
                     <a href="/pos.html" class="px-3 py-1.5 text-sm font-medium rounded bg-blue-600">POS</a>
-                    <a href="/inventory.html" class="px-3 py-1.5 text-sm font-medium rounded  bg-slate-700 hover:bg-slate-600">Inventory</a>
+                    <a href="/inventory.html" class="px-3 py-1.5 text-sm font-medium rounded bg-slate-700 hover:bg-slate-600">Inventory</a>
                     <a href="/customers.html" class="px-3 py-1.5 text-sm font-medium rounded admin-only hidden bg-slate-700 hover:bg-slate-600">Customers</a>
                     <a href="/users.html" class="px-3 py-1.5 text-sm font-medium rounded admin-only hidden bg-slate-700 hover:bg-slate-600">Users</a>
-                    <a href="/admin.html" class="px-3 py-1.5 text-sm font-medium rounded admin-only hidden bg-slate-700 hover:bg-slate-600">Admin / Resources</a>
+                    <a href="/admin.html" class="px-3 py-1.5 text-sm font-medium rounded admin-only hidden bg-slate-700 hover:bg-slate-600">Admin</a>
                     <a href="/analytics.html" class="px-3 py-1.5 text-sm font-medium rounded admin-only hidden bg-slate-700 hover:bg-slate-600">Analytics</a>
                     <a href="/settings.html" class="px-3 py-1.5 text-sm font-medium rounded admin-only hidden bg-slate-700 hover:bg-slate-600">Settings</a>
                     <button id="btn-logout" class="px-3 py-1.5 text-sm font-medium rounded border border-slate-600 hover:bg-slate-800 text-red-400">Logout</button>
                 </div>
             </div>
         </div>
+        <!-- Mobile Menu (hidden by default) -->
+        <div id="mobile-menu" class="hidden md:hidden bg-slate-800 absolute w-full left-0 top-14 shadow-xl border-t border-slate-700">
+            <div class="px-4 pt-2 pb-4 space-y-2 flex flex-col">
+                <a href="/pos.html" class="block px-3 py-2 rounded text-base font-medium bg-blue-600">POS</a>
+                <a href="/inventory.html" class="block px-3 py-2 rounded text-base font-medium bg-slate-700 hover:bg-slate-600">Inventory</a>
+                <a href="/customers.html" class="block px-3 py-2 rounded text-base font-medium admin-only hidden bg-slate-700 hover:bg-slate-600">Customers</a>
+                <a href="/users.html" class="block px-3 py-2 rounded text-base font-medium admin-only hidden bg-slate-700 hover:bg-slate-600">Users</a>
+                <a href="/admin.html" class="block px-3 py-2 rounded text-base font-medium admin-only hidden bg-slate-700 hover:bg-slate-600">Admin</a>
+                <a href="/analytics.html" class="block px-3 py-2 rounded text-base font-medium admin-only hidden bg-slate-700 hover:bg-slate-600">Analytics</a>
+                <a href="/settings.html" class="block px-3 py-2 rounded text-base font-medium admin-only hidden bg-slate-700 hover:bg-slate-600">Settings</a>
+                <button id="btn-logout-mobile" class="w-full text-left block px-3 py-2 rounded text-base font-medium text-red-400 hover:bg-slate-700">Logout</button>
+            </div>
+        </div>
     </nav>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const btn = document.getElementById('mobile-menu-btn');
+            const menu = document.getElementById('mobile-menu');
+            if(btn && menu) {
+                btn.addEventListener('click', () => {
+                    menu.classList.toggle('hidden');
+                });
+            }
+            const logoutMobile = document.getElementById('btn-logout-mobile');
+            if(logoutMobile) {
+                logoutMobile.addEventListener('click', () => {
+                    document.getElementById('btn-logout')?.click();
+                });
+            }
+        });
+    </script>
 
     <main class="flex-1 overflow-y-auto p-4">
         <div class="flex flex-col lg:flex-row gap-6 max-w-7xl mx-auto pb-4">
@@ -57,7 +96,7 @@
             <div class="w-full lg:w-5/12 flex flex-col gap-4">
                 <div class="bg-white rounded-xl shadow border border-gray-200 p-5">
                     <h2 class="text-lg font-bold text-gray-800 mb-3">Quick Add</h2>
-                    <div class="grid grid-cols-3 gap-2 mb-4">
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-4">
                           <button class="quick-srv-btn bg-blue-600 text-white py-2 rounded text-sm font-medium" data-name="Print / Copy">Print / Copy</button>
                           <button class="quick-srv-btn bg-gray-100 text-gray-700 py-2 rounded text-sm font-medium" data-name="Typesetting">Typesetting</button>
                           <button class="quick-srv-btn bg-gray-100 text-gray-700 py-2 rounded text-sm font-medium" data-name="Binding Service">Binding</button>
@@ -99,10 +138,10 @@
                         </div>
                     </div>
 
-                    <div class="grid grid-cols-2 gap-4 mb-4">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
                         <div>
                             <label class="block text-sm font-semibold mb-1">Quantity</label>
-                            <div class="flex"><button id="qty-minus" class="bg-gray-200 px-2 py-1 rounded-l text-sm font-bold hover:bg-gray-300">-</button><input type="number" id="pos-qty" class="w-full text-center border-y py-1 text-sm font-bold focus:outline-none" value="1"><button id="qty-plus" class="bg-gray-200 px-2 py-1 rounded-r text-sm font-bold hover:bg-gray-300">+</button></div>
+                            <div class="flex"><button id="qty-minus" class="bg-gray-200 px-2 py-1 rounded-l text-sm font-bold hover:bg-gray-300">-</button><input type="number" id="pos-qty" class="w-full min-w-[50px] text-center border-y py-1 text-sm font-bold focus:outline-none" value="1"><button id="qty-plus" class="bg-gray-200 px-2 py-1 rounded-r text-sm font-bold hover:bg-gray-300">+</button></div>
                         </div>
                         <div>
                             <label class="block text-sm font-semibold text-blue-600 mb-1">Total (Ksh)</label>
@@ -172,7 +211,7 @@
                 <!-- Expense Entry Card -->
                 <div class="bg-white rounded-xl shadow border border-gray-200 p-4">
                     <h2 class="text-sm font-bold text-gray-700 mb-3">⚡ Quick Expense / Open Resource</h2>
-                    <div class="grid grid-cols-2 gap-3">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <!-- Log Expense -->
                         <div class="border border-slate-200 rounded-lg p-3 bg-slate-50 flex flex-col">
                             <div class="text-xs font-bold text-slate-600 mb-2">Log Expense</div>
