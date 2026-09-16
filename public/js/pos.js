@@ -713,7 +713,7 @@ window.voidSale = async (id) => {
 
 
 // ─── LEDGER TOGGLE ────────────────────────────────────────────────────────────
-let ledgerVisible = true;
+let ledgerVisible = false;
 
 // Ledger Auto-hide logic (5 minutes)
 let ledgerTimer;
