@@ -7,6 +7,8 @@ let currentResources = [];
 let currentOverheads = [];
 let currentDailyExpenses = [];
 let currentTotalExpenses = 0;
+let currentLowStock = [];
+let lowStockExpanded = false;
 let periodStr = 'today';
 
 let userChartInstance = null;
@@ -62,19 +64,8 @@ async function load() {
         supabase.from('inventory').select('name, stock_quantity, selling_price').lte('stock_quantity', 5).order('stock_quantity', { ascending: true })
     ]);
     
-    // Render Low Stock
-    const lsTbody = document.getElementById('low-stock-tbody');
-    if (lowStockData && lowStockData.length > 0) {
-        lsTbody.innerHTML = lowStockData.map(i => `
-            <tr>
-                <td class="py-2 px-3 font-semibold text-slate-800">${i.name}</td>
-                <td class="py-2 px-3 text-center"><span class="bg-red-100 text-red-700 px-2 py-0.5 rounded font-bold text-xs">${i.stock_quantity}</span></td>
-                <td class="py-2 px-3 text-right">Ksh ${i.selling_price}</td>
-            </tr>
-        `).join('');
-    } else {
-        lsTbody.innerHTML = `<tr><td colspan="3" class="py-4 text-center text-slate-500 text-sm">All products are sufficiently stocked.</td></tr>`;
-    }
+    currentLowStock = lowStockData || [];
+    renderLowStock();
     
     currentSalesData = s || [];
     currentResources = resData || [];
@@ -191,6 +182,43 @@ function updateCharts(userRevenue, methodRevenue, items) {
     });
 }
 
+window.toggleLowStock = () => {
+    lowStockExpanded = !lowStockExpanded;
+    renderLowStock();
+};
+
+function renderLowStock() {
+    const lsTbody = document.getElementById('low-stock-tbody');
+    if (!currentLowStock || currentLowStock.length === 0) {
+        lsTbody.innerHTML = `<tr><td colspan="3" class="py-4 text-center text-slate-500 text-sm">All products are sufficiently stocked.</td></tr>`;
+        return;
+    }
+
+    const limit = lowStockExpanded ? currentLowStock.length : 5;
+    const toShow = currentLowStock.slice(0, limit);
+
+    let html = toShow.map(i => `
+        <tr>
+            <td class="py-2 px-3 font-semibold text-slate-800">${i.name}</td>
+            <td class="py-2 px-3 text-center"><span class="bg-red-100 text-red-700 px-2 py-0.5 rounded font-bold text-xs">${i.stock_quantity}</span></td>
+            <td class="py-2 px-3 text-right">Ksh ${i.selling_price}</td>
+        </tr>
+    `).join('');
+
+    if (currentLowStock.length > 5) {
+        html += `
+        <tr>
+            <td colspan="3" class="py-2 text-center bg-slate-50 hover:bg-slate-100 transition-colors cursor-pointer" onclick="toggleLowStock()">
+                <button class="text-blue-600 font-bold text-sm w-full outline-none">
+                    ${lowStockExpanded ? 'Show Less' : `Show All (${currentLowStock.length})`}
+                </button>
+            </td>
+        </tr>
+        `;
+    }
+    lsTbody.innerHTML = html;
+}
+
 document.getElementById('ana-period').addEventListener('change', load);
 document.getElementById('ana-date').addEventListener('change', load);
 document.getElementById('chk-include-bulk').addEventListener('change', load);
@@ -239,32 +267,33 @@ document.getElementById('btn-dl-report').addEventListener('click', () => {
     let wTotal = 0;
     let dTotal = 0;
     let expAgg = {};
+    let pdfTotalExpenses = 0;
+    
     currentDailyExpenses.forEach(e => {
         const desc = e.description || 'Other';
         expAgg[desc] = (expAgg[desc] || 0) + (e.amount || 0);
         if (desc.toLowerCase().includes('wage')) wTotal += (e.amount || 0);
         else dTotal += (e.amount || 0);
+        pdfTotalExpenses += (e.amount || 0);
     });
 
     let rTotal = 0;
     let resAgg = {};
-    if (document.getElementById('chk-include-bulk').checked) {
-        currentResources.forEach(r => {
-            const name = r.name || 'Resource';
-            resAgg[name] = (resAgg[name] || 0) + (r.cost || 0);
-            rTotal += (r.cost || 0);
-        });
-    }
+    // Always include in PDF report for accurate monthly/daily profit
+    currentResources.forEach(r => {
+        const name = r.name || 'Resource';
+        resAgg[name] = (resAgg[name] || 0) + (r.cost || 0);
+        rTotal += (r.cost || 0);
+        pdfTotalExpenses += (r.cost || 0);
+    });
 
     let fTotal = 0;
     let fixedList = [];
-    if (document.getElementById('chk-include-bulk').checked) {
-        currentOverheads.forEach(o => {
-            if (o.rent) { fixedList.push(`Rent: Ksh ${o.rent.toLocaleString()}`); fTotal += o.rent; }
-            if (o.electricity) { fixedList.push(`Elec: Ksh ${o.electricity.toLocaleString()}`); fTotal += o.electricity; }
-            if (o.wifi_internet) { fixedList.push(`WiFi: Ksh ${o.wifi_internet.toLocaleString()}`); fTotal += o.wifi_internet; }
-        });
-    }
+    currentOverheads.forEach(o => {
+        if (o.rent) { fixedList.push(`Rent: Ksh ${o.rent.toLocaleString()}`); fTotal += o.rent; pdfTotalExpenses += o.rent; }
+        if (o.electricity) { fixedList.push(`Elec: Ksh ${o.electricity.toLocaleString()}`); fTotal += o.electricity; pdfTotalExpenses += o.electricity; }
+        if (o.wifi_internet) { fixedList.push(`WiFi: Ksh ${o.wifi_internet.toLocaleString()}`); fTotal += o.wifi_internet; pdfTotalExpenses += o.wifi_internet; }
+    });
 
     doc.setTextColor(50, 50, 50);
     doc.setFontSize(14);
@@ -322,7 +351,7 @@ document.getElementById('btn-dl-report').addEventListener('click', () => {
     
     currentY += 2;
     doc.setFont("helvetica", "bold");
-    doc.text(`NET PROFIT: Ksh ${(grossProf - currentTotalExpenses).toLocaleString()}`, 14, currentY);
+    doc.text(`NET PROFIT: Ksh ${(grossProf - pdfTotalExpenses).toLocaleString()}`, 14, currentY);
     currentY += 10;
     
     if (Object.keys(expAgg).length > 0 || Object.keys(resAgg).length > 0 || fixedList.length > 0) {
