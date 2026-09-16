@@ -735,7 +735,6 @@ document.getElementById('btn-toggle-ledger').addEventListener('click', () => {
 });
 
 // ─── QUICK EXPENSE LOGGER ─────────────────────────────────────────────────────
-let activeExpenseTab = 'lunch';
 
 // Fetch users for wage dropdown
 async function loadUsersForWage() {
