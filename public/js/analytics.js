@@ -219,6 +219,36 @@ document.getElementById('btn-dl-report').addEventListener('click', () => {
         itemAgg[itemName].users.add(username);
     });
     
+    let wTotal = 0;
+    let dTotal = 0;
+    let expAgg = {};
+    currentDailyExpenses.forEach(e => {
+        const desc = e.description || 'Other';
+        expAgg[desc] = (expAgg[desc] || 0) + (e.amount || 0);
+        if (desc.toLowerCase().includes('wage')) wTotal += (e.amount || 0);
+        else dTotal += (e.amount || 0);
+    });
+
+    let rTotal = 0;
+    let resAgg = {};
+    if (document.getElementById('chk-include-bulk').checked) {
+        currentResources.forEach(r => {
+            const name = r.name || 'Resource';
+            resAgg[name] = (resAgg[name] || 0) + (r.cost || 0);
+            rTotal += (r.cost || 0);
+        });
+    }
+
+    let fTotal = 0;
+    let fixedList = [];
+    if (document.getElementById('chk-include-bulk').checked) {
+        currentOverheads.forEach(o => {
+            if (o.rent) { fixedList.push(`Rent: Ksh ${o.rent.toLocaleString()}`); fTotal += o.rent; }
+            if (o.electricity) { fixedList.push(`Elec: Ksh ${o.electricity.toLocaleString()}`); fTotal += o.electricity; }
+            if (o.wifi_internet) { fixedList.push(`WiFi: Ksh ${o.wifi_internet.toLocaleString()}`); fTotal += o.wifi_internet; }
+        });
+    }
+
     doc.setTextColor(50, 50, 50);
     doc.setFontSize(14);
     doc.setFont("helvetica", "bold");
@@ -227,10 +257,19 @@ document.getElementById('btn-dl-report').addEventListener('click', () => {
     doc.setFontSize(10);
     doc.setFont("helvetica", "normal");
     
-    // Left column
+    // Left column (Math Breakdown)
     doc.text(`Gross Revenue: Ksh ${rev.toLocaleString()}`, 14, 55);
-    doc.text(`Total Expenses: Ksh ${currentTotalExpenses.toLocaleString()}`, 14, 62);
-    doc.text(`Net Profit: Ksh ${(grossProf - currentTotalExpenses).toLocaleString()}`, 14, 69);
+    doc.text(`Gross Profit: Ksh ${grossProf.toLocaleString()}`, 14, 62);
+    
+    let yPos = 69;
+    if (wTotal > 0) { doc.text(`- Wages: Ksh ${wTotal.toLocaleString()}`, 14, yPos); yPos += 6; }
+    if (fTotal > 0) { doc.text(`- Fixed Bills: Ksh ${fTotal.toLocaleString()}`, 14, yPos); yPos += 6; }
+    if (rTotal > 0) { doc.text(`- Opened Resources: Ksh ${rTotal.toLocaleString()}`, 14, yPos); yPos += 6; }
+    if (dTotal > 0) { doc.text(`- Other Expenses: Ksh ${dTotal.toLocaleString()}`, 14, yPos); yPos += 6; }
+    
+    doc.setFont("helvetica", "bold");
+    doc.text(`Net Profit: Ksh ${(grossProf - currentTotalExpenses).toLocaleString()}`, 14, yPos + 2);
+    doc.setFont("helvetica", "normal");
     
     // Middle column
     const userSummary = Object.entries(userTotals).map(u => `${u[0]}: Ksh ${u[1].toLocaleString()}`).join('  |  ');
@@ -247,7 +286,7 @@ document.getElementById('btn-dl-report').addEventListener('click', () => {
     ]);
     
     doc.autoTable({
-        startY: 80,
+        startY: Math.max(90, yPos + 10),
         head: [['Item / Service', 'Total Qty', 'Total Revenue', 'Payment Modes', 'Cashiers']],
         body: tableData,
         theme: 'striped',
@@ -260,26 +299,25 @@ document.getElementById('btn-dl-report').addEventListener('click', () => {
     let currentY = doc.lastAutoTable.finalY + 15;
     
     // Expenses & Resources section
-    if (currentDailyExpenses.length > 0 || currentResources.length > 0 || currentOverheads.length > 0) {
+    if (Object.keys(expAgg).length > 0 || Object.keys(resAgg).length > 0 || fixedList.length > 0) {
         doc.setFontSize(12);
         doc.setFont("helvetica", "bold");
-        doc.text("Daily Expenses & Opened Resources", 14, currentY);
+        doc.text("Expense & Resource Breakdown", 14, currentY);
         currentY += 8;
         doc.setFontSize(9);
         doc.setFont("helvetica", "normal");
         
-        currentDailyExpenses.forEach(e => {
-            doc.text(`- ${e.description || 'Other'}: Ksh ${e.amount}`, 14, currentY);
+        Object.entries(expAgg).forEach(([desc, amt]) => {
+            doc.text(`- ${desc}: Ksh ${amt.toLocaleString()}`, 14, currentY);
             currentY += 6;
         });
-        currentResources.forEach(r => {
-            doc.text(`- [Opened] ${r.name || 'Resource'}: Ksh ${r.cost}`, 14, currentY);
+        Object.entries(resAgg).forEach(([name, cost]) => {
+            doc.text(`- [Opened] ${name}: Ksh ${cost.toLocaleString()}`, 14, currentY);
             currentY += 6;
         });
-        currentOverheads.forEach(o => {
-            if (o.rent) { doc.text(`- [Fixed] Rent: Ksh ${o.rent}`, 14, currentY); currentY += 6; }
-            if (o.electricity) { doc.text(`- [Fixed] Electricity: Ksh ${o.electricity}`, 14, currentY); currentY += 6; }
-            if (o.wifi_internet) { doc.text(`- [Fixed] WiFi: Ksh ${o.wifi_internet}`, 14, currentY); currentY += 6; }
+        fixedList.forEach(item => {
+            doc.text(`- [Fixed] ${item}`, 14, currentY);
+            currentY += 6;
         });
     }
     
