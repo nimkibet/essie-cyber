@@ -3,6 +3,10 @@ requireAuth();
 if (currentUser && currentUser.role !== 'admin') window.location.href = '/pos.html';
 
 let currentSalesData = [];
+let currentResources = [];
+let currentOverheads = [];
+let currentDailyExpenses = [];
+let currentTotalExpenses = 0;
 let periodStr = 'today';
 
 let userChartInstance = null;
@@ -11,49 +15,67 @@ let itemsChartInstance = null;
 
 async function load() {
     periodStr = document.getElementById('ana-period').value;
-    const d = new Date();
+    const dateInput = document.getElementById('ana-date');
+    
+    if (periodStr === 'custom') {
+        dateInput.classList.remove('hidden');
+        if (!dateInput.value) {
+            dateInput.value = new Date().toISOString().split('T')[0];
+        }
+    } else {
+        dateInput.classList.add('hidden');
+    }
+
+    const d = periodStr === 'custom' && dateInput.value ? new Date(dateInput.value) : new Date();
     const ym = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
     let dateFilter = periodStr === 'month' ? ym : d.toISOString().split('T')[0];
+    
+    let nextDate = new Date(d);
+    nextDate.setDate(nextDate.getDate() + 1);
+    let nextDateStr = nextDate.toISOString().split('T')[0];
 
     // 1. Fetch Sales
     let q = supabase.from('sales_log').select('*, inventory(name), users!sales_log_cashier_id_fkey(username)').eq('is_voided', false);
-    if (periodStr === 'month') q = q.gte('timestamp', `${dateFilter}-01T00:00:00Z`);
-    else q = q.gte('timestamp', `${dateFilter}T00:00:00Z`);
+    if (periodStr === 'month') {
+        q = q.gte('timestamp', `${dateFilter}-01T00:00:00Z`).lt('timestamp', `${d.getFullYear()}-${String(d.getMonth() + 2).padStart(2, '0')}-01T00:00:00Z`); // Very rough next month, ideally just do basic like original
+    } else {
+        q = q.gte('timestamp', `${dateFilter}T00:00:00Z`).lt('timestamp', `${nextDateStr}T00:00:00Z`);
+    }
 
     // 2. Fetch Opened Resources
-    let resQ = supabase.from('resources').select('cost, status');
+    let resQ = supabase.from('resources').select('name, cost, status');
     if (periodStr === 'month') resQ = resQ.gte('opened_at', `${dateFilter}-01T00:00:00Z`);
-    else resQ = resQ.gte('opened_at', `${dateFilter}T00:00:00Z`);
+    else resQ = resQ.gte('opened_at', `${dateFilter}T00:00:00Z`).lt('opened_at', `${nextDateStr}T00:00:00Z`);
 
     // 3. Fetch Fixed Overheads
     let ovQ = supabase.from('overhead_entries').select('rent, electricity, wifi_internet');
     if (periodStr === 'month') ovQ = ovQ.eq('period', ym);
-    else ovQ = ovQ.gte('created_at', `${dateFilter}T00:00:00Z`);
+    else ovQ = ovQ.gte('created_at', `${dateFilter}T00:00:00Z`).lt('created_at', `${nextDateStr}T00:00:00Z`);
 
     // 4. Fetch Daily Expenses
-    let expQ = supabase.from('expenses').select('amount');
+    let expQ = supabase.from('expenses').select('description, amount');
     if (periodStr === 'month') expQ = expQ.gte('timestamp', `${dateFilter}-01T00:00:00Z`);
-    else expQ = expQ.gte('timestamp', `${dateFilter}T00:00:00Z`);
+    else expQ = expQ.gte('timestamp', `${dateFilter}T00:00:00Z`).lt('timestamp', `${nextDateStr}T00:00:00Z`);
 
     const [ {data: s}, {data: resData}, {data: ovData}, {data: expData} ] = await Promise.all([q, resQ, ovQ, expQ]);
     
     currentSalesData = s || [];
-    const resources = resData || [];
-    const overheads = ovData || [];
-    const dailyExpenses = expData || [];
+    currentResources = resData || [];
+    currentOverheads = ovData || [];
+    currentDailyExpenses = expData || [];
 
     const includeBulk = document.getElementById('chk-include-bulk').checked;
 
     // Calculate Expenses
-    let totalExpenses = 0;
+    currentTotalExpenses = 0;
     
     // Always include daily POS expenses
-    dailyExpenses.forEach(e => totalExpenses += (e.amount || 0));
+    currentDailyExpenses.forEach(e => currentTotalExpenses += (e.amount || 0));
 
     if (includeBulk) {
-        resources.forEach(r => totalExpenses += (r.cost || 0));
-        overheads.forEach(o => {
-            totalExpenses += (o.rent || 0) + (o.electricity || 0) + (o.wifi_internet || 0);
+        currentResources.forEach(r => currentTotalExpenses += (r.cost || 0));
+        currentOverheads.forEach(o => {
+            currentTotalExpenses += (o.rent || 0) + (o.electricity || 0) + (o.wifi_internet || 0);
         });
     }
 
@@ -80,10 +102,10 @@ async function load() {
         else if (x.payment_method === 'mpesa') methodRevenue.mpesa += x.total_charged;
     });
 
-    const netProfit = grossProf - totalExpenses;
+    const netProfit = grossProf - currentTotalExpenses;
 
     document.getElementById('kpi-rev').innerText = `Ksh ${rev.toLocaleString(undefined, {maximumFractionDigits:0})}`;
-    document.getElementById('kpi-exp').innerText = `Ksh ${totalExpenses.toLocaleString(undefined, {maximumFractionDigits:0})}`;
+    document.getElementById('kpi-exp').innerText = `Ksh ${currentTotalExpenses.toLocaleString(undefined, {maximumFractionDigits:0})}`;
     document.getElementById('kpi-profit').innerText = `Ksh ${netProfit.toLocaleString(undefined, {maximumFractionDigits:0})}`;
 
     // Update User Leaderboard Table
@@ -153,6 +175,7 @@ function updateCharts(userRevenue, methodRevenue, items) {
 }
 
 document.getElementById('ana-period').addEventListener('change', load);
+document.getElementById('ana-date').addEventListener('change', load);
 document.getElementById('chk-include-bulk').addEventListener('change', load);
 
 document.getElementById('btn-dl-report').addEventListener('click', () => {
@@ -174,10 +197,27 @@ document.getElementById('btn-dl-report').addEventListener('click', () => {
     doc.text(`${reportTitle} - ${new Date().toLocaleDateString()}`, 130, 20);
     
     let rev = 0, grossProf = 0;
-    currentSalesData.forEach(x => { rev += x.total_charged; grossProf += x.calculated_profit; });
-    
-    // We don't recalculate expenses here, we could re-query but for simplicity we rely on UI state for now, 
-    // or we just show gross profit in the PDF to keep it simple. Let's just show Gross Profit in the PDF.
+    const userTotals = {};
+    const methodTotals = { cash: 0, mpesa: 0 };
+    const itemAgg = {};
+
+    currentSalesData.forEach(x => { 
+        rev += x.total_charged; 
+        grossProf += x.calculated_profit;
+        
+        const username = x.users?.username || 'System';
+        userTotals[username] = (userTotals[username] || 0) + x.total_charged;
+        
+        if (x.payment_method === 'cash') methodTotals.cash += x.total_charged;
+        else if (x.payment_method === 'mpesa') methodTotals.mpesa += x.total_charged;
+        
+        const itemName = x.inventory?.name || 'Unknown';
+        if (!itemAgg[itemName]) itemAgg[itemName] = { qty: 0, revenue: 0, method: new Set(), users: new Set() };
+        itemAgg[itemName].qty += x.calculated_qty;
+        itemAgg[itemName].revenue += x.total_charged;
+        itemAgg[itemName].method.add(x.payment_method);
+        itemAgg[itemName].users.add(username);
+    });
     
     doc.setTextColor(50, 50, 50);
     doc.setFontSize(14);
@@ -186,22 +226,29 @@ document.getElementById('btn-dl-report').addEventListener('click', () => {
     
     doc.setFontSize(10);
     doc.setFont("helvetica", "normal");
-    doc.text(`Total Transactions: ${currentSalesData.length}`, 14, 55);
-    doc.text(`Gross Revenue: Ksh ${rev.toLocaleString()}`, 14, 62);
-    doc.text(`Gross Profit: Ksh ${grossProf.toLocaleString()}`, 14, 69);
     
-    const tableData = currentSalesData.map(s => [
-        new Date(s.timestamp).toLocaleTimeString(),
-        s.inventory?.name || 'Unknown',
-        s.calculated_qty,
-        `Ksh ${s.total_charged.toLocaleString()}`,
-        s.payment_method,
-        s.users?.username || 'System'
+    // Left column
+    doc.text(`Gross Revenue: Ksh ${rev.toLocaleString()}`, 14, 55);
+    doc.text(`Total Expenses: Ksh ${currentTotalExpenses.toLocaleString()}`, 14, 62);
+    doc.text(`Net Profit: Ksh ${(grossProf - currentTotalExpenses).toLocaleString()}`, 14, 69);
+    
+    // Middle column
+    const userSummary = Object.entries(userTotals).map(u => `${u[0]}: Ksh ${u[1].toLocaleString()}`).join('  |  ');
+    doc.text(`Cashiers: ${userSummary}`, 85, 55);
+    doc.text(`Cash: Ksh ${methodTotals.cash.toLocaleString()}`, 85, 62);
+    doc.text(`M-Pesa: Ksh ${methodTotals.mpesa.toLocaleString()}`, 85, 69);
+    
+    const tableData = Object.entries(itemAgg).sort((a,b) => b[1].revenue - a[1].revenue).map(entry => [
+        entry[0],
+        entry[1].qty,
+        `Ksh ${entry[1].revenue.toLocaleString()}`,
+        Array.from(entry[1].method).join('/'),
+        Array.from(entry[1].users).join(', ')
     ]);
     
     doc.autoTable({
         startY: 80,
-        head: [['Time', 'Item / Service', 'Qty', 'Revenue', 'Payment', 'Cashier']],
+        head: [['Item / Service', 'Total Qty', 'Total Revenue', 'Payment Modes', 'Cashiers']],
         body: tableData,
         theme: 'striped',
         headStyles: { fillColor: [79, 70, 229] },
@@ -209,13 +256,39 @@ document.getElementById('btn-dl-report').addEventListener('click', () => {
         styles: { font: 'helvetica', fontSize: 9 },
         margin: { top: 35 }
     });
+
+    let currentY = doc.lastAutoTable.finalY + 15;
     
-    const finalY = doc.lastAutoTable.finalY || 80;
+    // Expenses & Resources section
+    if (currentDailyExpenses.length > 0 || currentResources.length > 0 || currentOverheads.length > 0) {
+        doc.setFontSize(12);
+        doc.setFont("helvetica", "bold");
+        doc.text("Daily Expenses & Opened Resources", 14, currentY);
+        currentY += 8;
+        doc.setFontSize(9);
+        doc.setFont("helvetica", "normal");
+        
+        currentDailyExpenses.forEach(e => {
+            doc.text(`- ${e.description || 'Other'}: Ksh ${e.amount}`, 14, currentY);
+            currentY += 6;
+        });
+        currentResources.forEach(r => {
+            doc.text(`- [Opened] ${r.name || 'Resource'}: Ksh ${r.cost}`, 14, currentY);
+            currentY += 6;
+        });
+        currentOverheads.forEach(o => {
+            if (o.rent) { doc.text(`- [Fixed] Rent: Ksh ${o.rent}`, 14, currentY); currentY += 6; }
+            if (o.electricity) { doc.text(`- [Fixed] Electricity: Ksh ${o.electricity}`, 14, currentY); currentY += 6; }
+            if (o.wifi_internet) { doc.text(`- [Fixed] WiFi: Ksh ${o.wifi_internet}`, 14, currentY); currentY += 6; }
+        });
+    }
+    
+    const finalY = currentY > (doc.lastAutoTable.finalY + 15) ? currentY : (doc.lastAutoTable.finalY || 80);
     doc.setFontSize(8);
     doc.setTextColor(150, 150, 150);
     doc.text(`Generated by Essie Cyber System on ${new Date().toLocaleString()}`, 14, finalY + 15);
     
-    const filename = periodStr === 'today' ? `Daily_Report_${new Date().toISOString().split('T')[0]}.pdf` : `Monthly_Report_${new Date().toISOString().split('T')[0]}.pdf`;
+    const filename = periodStr === 'today' ? `Daily_Report_${new Date().toISOString().split('T')[0]}.pdf` : `Report_${new Date().toISOString().split('T')[0]}.pdf`;
     doc.save(filename);
 });
 
