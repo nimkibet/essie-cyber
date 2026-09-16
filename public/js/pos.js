@@ -756,10 +756,12 @@ async function loadUsersForWage() {
     const { data } = await supabase.from('users').select('id, username');
     const sel = document.getElementById('exp-wage-user');
     if (sel && data) {
-        sel.innerHTML = '<option value="">Select cashier...</option>' + data.map(u => `<option value="${u.username}">${u.username}</option>`).join('');
+        sel.innerHTML = '<option value="">Select cashier...</option>' + data.map(u => `<option value="${u.id}">${u.username}</option>`).join('');
     }
 }
 loadUsersForWage();
+
+let activeExpenseTab = 'lunch';
 
 document.querySelectorAll('.exp-tab').forEach(btn => {
     btn.addEventListener('click', (e) => {
@@ -798,13 +800,17 @@ document.querySelectorAll('.exp-tab').forEach(btn => {
 document.getElementById('btn-log-expense').addEventListener('click', async () => {
     let desc = '';
     let amt = parseFloat(document.getElementById('exp-amount').value);
+    let targetUserId = null;
     
     if (activeExpenseTab === 'lunch') desc = 'Lunch';
     else if (activeExpenseTab === 'transport') desc = 'Transport';
     else if (activeExpenseTab === 'wage') {
-        const user = document.getElementById('exp-wage-user').value;
-        if (!user) return alert('Select a cashier for the wage log.');
-        desc = `Wage - ${user}`;
+        const sel = document.getElementById('exp-wage-user');
+        const userId = sel.value;
+        if (!userId) return alert('Select a cashier for the wage log.');
+        const userName = sel.options[sel.selectedIndex].text;
+        desc = `Wage - ${userName}`;
+        targetUserId = userId;
     }
     else if (activeExpenseTab === 'other') {
         const descField = document.getElementById('exp-desc');
@@ -823,6 +829,16 @@ document.getElementById('btn-log-expense').addEventListener('click', async () =>
         };
         const res = await insertExpenseWithOfflineSupport(supabase, payload, desc);
         
+        // Ensure wage gets tracked in Admin Shift Wages automatically
+        if (targetUserId && navigator.onLine) {
+            const today = new Date().toISOString().split('T')[0];
+            await supabase.from('attendance_log').upsert({
+                user_id: targetUserId,
+                work_date: today,
+                wage_assigned: amt
+            }, { onConflict: 'user_id, work_date' });
+        }
+
         const descField = document.getElementById('exp-desc');
         if(descField) descField.value = '';
         document.getElementById('exp-amount').value = '';
