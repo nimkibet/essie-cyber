@@ -715,6 +715,22 @@ window.voidSale = async (id) => {
 // ─── LEDGER TOGGLE ────────────────────────────────────────────────────────────
 let ledgerVisible = true;
 
+// Ledger Auto-hide logic (5 minutes)
+let ledgerTimer;
+function resetLedgerTimer() {
+    clearTimeout(ledgerTimer);
+    if (ledgerVisible) {
+        ledgerTimer = setTimeout(() => {
+            if (ledgerVisible) {
+                const btn = document.getElementById('btn-toggle-ledger');
+                if (btn) btn.click();
+            }
+        }, 5 * 60 * 1000);
+    }
+}
+document.addEventListener('mousemove', resetLedgerTimer);
+document.addEventListener('keydown', resetLedgerTimer);
+
 document.getElementById('btn-toggle-ledger').addEventListener('click', () => {
     ledgerVisible = !ledgerVisible;
     const table = document.getElementById('ledger-table-wrap');
@@ -732,7 +748,11 @@ document.getElementById('btn-toggle-ledger').addEventListener('click', () => {
         icon.textContent = '🚫';
         label.textContent = 'Show';
     }
+    resetLedgerTimer();
 });
+
+// Initialize timer on load
+resetLedgerTimer();
 
 // ─── QUICK EXPENSE LOGGER ─────────────────────────────────────────────────────
 
