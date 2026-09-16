@@ -884,12 +884,12 @@ document.getElementById('btn-open-resource').addEventListener('click', async () 
     btn.disabled = true; btn.textContent = 'Opening...';
     try {
         const { error } = await supabase.from('resources').insert([{
-            item_id: itemId,
             name: name,
             units: qty,
             cost: costPerUnit * qty,
             status: 'active',
-            opened_at: new Date().toISOString()
+            opened_at: new Date().toISOString(),
+            opened_by: currentUser.id
         }]);
         if (error) throw error;
         document.getElementById('qres-search').value = '';
