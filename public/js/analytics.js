@@ -116,6 +116,49 @@ async function load() {
     document.getElementById('kpi-exp').innerText = `Ksh ${currentTotalExpenses.toLocaleString(undefined, {maximumFractionDigits:0})}`;
     document.getElementById('kpi-profit').innerText = `Ksh ${netProfit.toLocaleString(undefined, {maximumFractionDigits:0})}`;
 
+    // Net Profit Math UI Breakdown
+    let uiWages = 0, uiOtherExp = 0, uiResources = 0, uiFixed = 0;
+    let uiDeductions = [];
+
+    currentDailyExpenses.forEach(e => {
+        const desc = e.description || 'Other';
+        if (desc.toLowerCase().includes('wage')) uiWages += (e.amount || 0);
+        else uiOtherExp += (e.amount || 0);
+        uiDeductions.push({ item: desc, cost: (e.amount || 0) });
+    });
+
+    if (includeBulk) {
+        currentResources.forEach(r => {
+            const cost = r.cost || 0;
+            uiResources += cost;
+            uiDeductions.push({ item: `[Opened] ${r.name || 'Resource'}`, cost });
+        });
+        currentOverheads.forEach(o => {
+            if (o.rent) { uiFixed += o.rent; uiDeductions.push({ item: '[Fixed] Rent', cost: o.rent }); }
+            if (o.electricity) { uiFixed += o.electricity; uiDeductions.push({ item: '[Fixed] Electricity', cost: o.electricity }); }
+            if (o.wifi_internet) { uiFixed += o.wifi_internet; uiDeductions.push({ item: '[Fixed] WiFi', cost: o.wifi_internet }); }
+        });
+    }
+
+    document.getElementById('math-gross').innerText = `Ksh ${grossProf.toLocaleString()}`;
+    document.getElementById('math-wages').innerText = `Ksh ${uiWages.toLocaleString()}`;
+    document.getElementById('math-fixed').innerText = `Ksh ${uiFixed.toLocaleString()}`;
+    document.getElementById('math-resources').innerText = `Ksh ${uiResources.toLocaleString()}`;
+    document.getElementById('math-other').innerText = `Ksh ${uiOtherExp.toLocaleString()}`;
+    document.getElementById('math-net').innerText = `Ksh ${netProfit.toLocaleString()}`;
+
+    const dTbody = document.getElementById('deductions-tbody');
+    if (uiDeductions.length > 0) {
+        dTbody.innerHTML = uiDeductions.sort((a,b) => b.cost - a.cost).map(d => `
+            <tr>
+                <td class="py-2 px-3">${d.item}</td>
+                <td class="py-2 px-3 text-right font-semibold text-slate-800">Ksh ${d.cost.toLocaleString()}</td>
+            </tr>
+        `).join('');
+    } else {
+        dTbody.innerHTML = `<tr><td colspan="2" class="py-2 px-3 text-center text-slate-400">No deductions for this period</td></tr>`;
+    }
+
     // Update User Leaderboard Table
     const sortedUsers = Object.entries(userRevenue).sort((a, b) => b[1] - a[1]);
     const utb = document.getElementById('user-tbody');
