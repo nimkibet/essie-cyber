@@ -6,6 +6,7 @@ let currentSalesData = [];
 let currentResources = [];
 let currentOverheads = [];
 let currentDailyExpenses = [];
+let currentAttendanceWages = [];
 let currentTotalExpenses = 0;
 let currentLowStock = [];
 let lowStockExpanded = false;
@@ -59,8 +60,13 @@ async function load() {
     if (periodStr === 'month') expQ = expQ.gte('timestamp', `${dateFilter}-01T00:00:00Z`);
     else expQ = expQ.gte('timestamp', `${dateFilter}T00:00:00Z`).lt('timestamp', `${nextDateStr}T00:00:00Z`);
 
-    const [ {data: s}, {data: resData}, {data: ovData}, {data: expData}, {data: lowStockData} ] = await Promise.all([
-        q, resQ, ovQ, expQ,
+    // 5. Fetch Attendance Wages
+    let attQ = supabase.from('attendance_log').select('wage_assigned, users(username)');
+    if (periodStr === 'month') attQ = attQ.like('work_date', `${ym}%`);
+    else attQ = attQ.eq('work_date', dateFilter);
+
+    const [ {data: s}, {data: resData}, {data: ovData}, {data: expData}, {data: attData}, {data: lowStockData} ] = await Promise.all([
+        q, resQ, ovQ, expQ, attQ,
         supabase.from('inventory').select('name, stock_quantity, selling_price').lte('stock_quantity', 5).order('stock_quantity', { ascending: true })
     ]);
     
@@ -71,6 +77,7 @@ async function load() {
     currentResources = resData || [];
     currentOverheads = ovData || [];
     currentDailyExpenses = expData || [];
+    currentAttendanceWages = attData || [];
 
     const includeBulk = document.getElementById('chk-include-bulk').checked;
 
@@ -79,6 +86,9 @@ async function load() {
     
     // Always include daily POS expenses
     currentDailyExpenses.forEach(e => currentTotalExpenses += (e.amount || 0));
+
+    // Attendance wages are also always included as fixed expenses
+    currentAttendanceWages.forEach(w => currentTotalExpenses += (w.wage_assigned || 0));
 
     if (includeBulk) {
         currentResources.forEach(r => currentTotalExpenses += (r.cost || 0));
@@ -125,6 +135,13 @@ async function load() {
         if (desc.toLowerCase().includes('wage')) uiWages += (e.amount || 0);
         else uiOtherExp += (e.amount || 0);
         uiDeductions.push({ item: desc, cost: (e.amount || 0) });
+    });
+
+    currentAttendanceWages.forEach(w => {
+        const wageAmt = w.wage_assigned || 0;
+        uiWages += wageAmt;
+        const name = w.users?.username || 'User';
+        uiDeductions.push({ item: `[Shift Wage] ${name}`, cost: wageAmt });
     });
 
     if (includeBulk) {
@@ -318,6 +335,14 @@ document.getElementById('btn-dl-report').addEventListener('click', () => {
         if (desc.toLowerCase().includes('wage')) wTotal += (e.amount || 0);
         else dTotal += (e.amount || 0);
         pdfTotalExpenses += (e.amount || 0);
+    });
+
+    currentAttendanceWages.forEach(w => {
+        const amt = w.wage_assigned || 0;
+        const desc = `[Shift Wage] ${w.users?.username || 'User'}`;
+        expAgg[desc] = (expAgg[desc] || 0) + amt;
+        wTotal += amt;
+        pdfTotalExpenses += amt;
     });
 
     let rTotal = 0;
