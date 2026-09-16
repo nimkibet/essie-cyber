@@ -146,6 +146,25 @@
                 </div>
             </div>
         </div>
+
+        <!-- Low Stock Alerts -->
+        <div class="bg-white p-4 rounded-xl shadow border mb-4">
+            <h2 class="text-base font-bold mb-3 text-red-600">Low Stock Alerts (≤ 5)</h2>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-sm">
+                    <thead class="bg-slate-50 text-slate-600">
+                        <tr>
+                            <th class="py-2 px-3">Item Name</th>
+                            <th class="py-2 px-3 text-center">Remaining Stock</th>
+                            <th class="py-2 px-3 text-right">Selling Price</th>
+                        </tr>
+                    </thead>
+                    <tbody id="low-stock-tbody" class="divide-y divide-slate-100">
+                        <tr><td colspan="3" class="py-4 text-center text-slate-500 text-sm">Loading stock alerts...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
     </main>
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>

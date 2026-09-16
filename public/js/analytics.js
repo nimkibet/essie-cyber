@@ -57,7 +57,24 @@ async function load() {
     if (periodStr === 'month') expQ = expQ.gte('timestamp', `${dateFilter}-01T00:00:00Z`);
     else expQ = expQ.gte('timestamp', `${dateFilter}T00:00:00Z`).lt('timestamp', `${nextDateStr}T00:00:00Z`);
 
-    const [ {data: s}, {data: resData}, {data: ovData}, {data: expData} ] = await Promise.all([q, resQ, ovQ, expQ]);
+    const [ {data: s}, {data: resData}, {data: ovData}, {data: expData}, {data: lowStockData} ] = await Promise.all([
+        q, resQ, ovQ, expQ,
+        supabase.from('inventory').select('name, stock_quantity, selling_price').lte('stock_quantity', 5).order('stock_quantity', { ascending: true })
+    ]);
+    
+    // Render Low Stock
+    const lsTbody = document.getElementById('low-stock-tbody');
+    if (lowStockData && lowStockData.length > 0) {
+        lsTbody.innerHTML = lowStockData.map(i => `
+            <tr>
+                <td class="py-2 px-3 font-semibold text-slate-800">${i.name}</td>
+                <td class="py-2 px-3 text-center"><span class="bg-red-100 text-red-700 px-2 py-0.5 rounded font-bold text-xs">${i.stock_quantity}</span></td>
+                <td class="py-2 px-3 text-right">Ksh ${i.selling_price}</td>
+            </tr>
+        `).join('');
+    } else {
+        lsTbody.innerHTML = `<tr><td colspan="3" class="py-4 text-center text-slate-500 text-sm">All products are sufficiently stocked.</td></tr>`;
+    }
     
     currentSalesData = s || [];
     currentResources = resData || [];
@@ -257,19 +274,9 @@ document.getElementById('btn-dl-report').addEventListener('click', () => {
     doc.setFontSize(10);
     doc.setFont("helvetica", "normal");
     
-    // Left column (Math Breakdown)
+    // Left column
     doc.text(`Gross Revenue: Ksh ${rev.toLocaleString()}`, 14, 55);
     doc.text(`Gross Profit: Ksh ${grossProf.toLocaleString()}`, 14, 62);
-    
-    let yPos = 69;
-    if (wTotal > 0) { doc.text(`- Wages: Ksh ${wTotal.toLocaleString()}`, 14, yPos); yPos += 6; }
-    if (fTotal > 0) { doc.text(`- Fixed Bills: Ksh ${fTotal.toLocaleString()}`, 14, yPos); yPos += 6; }
-    if (rTotal > 0) { doc.text(`- Opened Resources: Ksh ${rTotal.toLocaleString()}`, 14, yPos); yPos += 6; }
-    if (dTotal > 0) { doc.text(`- Other Expenses: Ksh ${dTotal.toLocaleString()}`, 14, yPos); yPos += 6; }
-    
-    doc.setFont("helvetica", "bold");
-    doc.text(`Net Profit: Ksh ${(grossProf - currentTotalExpenses).toLocaleString()}`, 14, yPos + 2);
-    doc.setFont("helvetica", "normal");
     
     // Middle column
     const userSummary = Object.entries(userTotals).map(u => `${u[0]}: Ksh ${u[1].toLocaleString()}`).join('  |  ');
@@ -286,7 +293,7 @@ document.getElementById('btn-dl-report').addEventListener('click', () => {
     ]);
     
     doc.autoTable({
-        startY: Math.max(90, yPos + 10),
+        startY: 80,
         head: [['Item / Service', 'Total Qty', 'Total Revenue', 'Payment Modes', 'Cashiers']],
         body: tableData,
         theme: 'striped',
@@ -298,26 +305,44 @@ document.getElementById('btn-dl-report').addEventListener('click', () => {
 
     let currentY = doc.lastAutoTable.finalY + 15;
     
-    // Expenses & Resources section
+    // The "Hard Truth" Math & Expenses Section
+    doc.setFontSize(14);
+    doc.setFont("helvetica", "bold");
+    doc.text("Net Profit & Expense Breakdown", 14, currentY);
+    currentY += 8;
+
+    doc.setFontSize(11);
+    doc.setFont("helvetica", "normal");
+    doc.text(`Gross Profit: Ksh ${grossProf.toLocaleString()}`, 14, currentY);
+    currentY += 6;
+    if (wTotal > 0) { doc.text(`- Wages: Ksh ${wTotal.toLocaleString()}`, 14, currentY); currentY += 6; }
+    if (fTotal > 0) { doc.text(`- Fixed Bills: Ksh ${fTotal.toLocaleString()}`, 14, currentY); currentY += 6; }
+    if (rTotal > 0) { doc.text(`- Opened Resources: Ksh ${rTotal.toLocaleString()}`, 14, currentY); currentY += 6; }
+    if (dTotal > 0) { doc.text(`- Other Expenses: Ksh ${dTotal.toLocaleString()}`, 14, currentY); currentY += 6; }
+    
+    currentY += 2;
+    doc.setFont("helvetica", "bold");
+    doc.text(`NET PROFIT: Ksh ${(grossProf - currentTotalExpenses).toLocaleString()}`, 14, currentY);
+    currentY += 10;
+    
     if (Object.keys(expAgg).length > 0 || Object.keys(resAgg).length > 0 || fixedList.length > 0) {
-        doc.setFontSize(12);
-        doc.setFont("helvetica", "bold");
-        doc.text("Expense & Resource Breakdown", 14, currentY);
-        currentY += 8;
+        doc.setFontSize(10);
+        doc.text("Detailed Deductions:", 14, currentY);
+        currentY += 6;
         doc.setFontSize(9);
         doc.setFont("helvetica", "normal");
         
         Object.entries(expAgg).forEach(([desc, amt]) => {
             doc.text(`- ${desc}: Ksh ${amt.toLocaleString()}`, 14, currentY);
-            currentY += 6;
+            currentY += 5;
         });
         Object.entries(resAgg).forEach(([name, cost]) => {
             doc.text(`- [Opened] ${name}: Ksh ${cost.toLocaleString()}`, 14, currentY);
-            currentY += 6;
+            currentY += 5;
         });
         fixedList.forEach(item => {
             doc.text(`- [Fixed] ${item}`, 14, currentY);
-            currentY += 6;
+            currentY += 5;
         });
     }
     

@@ -2,6 +2,8 @@ import { supabase, currentUser, requireAuth } from './supabaseClient.js';
 import { showModal } from './uiHelper.js';
 requireAuth();
 
+let allInventory = [];
+
 async function load() {
     const tb = document.getElementById('inv-tbody');
     // Show skeleton rows while fetching
@@ -17,10 +19,29 @@ async function load() {
     `).join('');
 
     const {data} = await supabase.from('inventory').select('*').order('name');
-    
-    // Build all HTML as a string, set once — avoids 167x DOM re-parse
+    allInventory = data || [];
+    renderTable();
+}
+
+function renderTable() {
+    const tb = document.getElementById('inv-tbody');
+    const term = document.getElementById('inv-search').value.toLowerCase();
+    const sortVal = document.getElementById('inv-sort').value;
+
+    let filtered = allInventory.filter(i => i.name.toLowerCase().includes(term) || (i.type && i.type.toLowerCase().includes(term)));
+
+    filtered.sort((a, b) => {
+        if (sortVal === 'name-asc') return a.name.localeCompare(b.name);
+        if (sortVal === 'name-desc') return b.name.localeCompare(a.name);
+        if (sortVal === 'sell-high') return (b.selling_price || 0) - (a.selling_price || 0);
+        if (sortVal === 'sell-low') return (a.selling_price || 0) - (b.selling_price || 0);
+        if (sortVal === 'buy-high') return (b.buying_price || 0) - (a.buying_price || 0);
+        if (sortVal === 'buy-low') return (a.buying_price || 0) - (b.buying_price || 0);
+        return 0;
+    });
+
     let html = '';
-    (data||[]).forEach(i => {
+    filtered.forEach(i => {
         // Main Display Row
         html += `
         <tr class="hover:bg-slate-50 border-b border-slate-100 transition-colors">
@@ -173,20 +194,6 @@ document.getElementById('btn-add-item').addEventListener('click', () => {
 });
 
 load();
-document.getElementById('inv-search').addEventListener('input', (e) => {
-    const term = e.target.value.toLowerCase();
-    const rows = document.querySelectorAll('#inv-tbody tr');
-    for(let i=0; i<rows.length; i+=2) {
-        const displayRow = rows[i];
-        const editRow = rows[i+1];
-        if(!displayRow) continue;
-        const text = displayRow.innerText.toLowerCase();
-        if(text.includes(term)) {
-            displayRow.style.display = '';
-        } else {
-            displayRow.style.display = 'none';
-            if(editRow) editRow.classList.add('hidden');
-        }
-    }
-});
+document.getElementById('inv-search').addEventListener('input', renderTable);
+document.getElementById('inv-sort').addEventListener('change', renderTable);
 

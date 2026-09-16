@@ -87,7 +87,18 @@
     <main class="flex-1 overflow-y-auto p-6 max-w-7xl mx-auto w-full">
         <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
             <h1 class="text-2xl font-bold text-slate-800">Inventory Management</h1>
-            <div class="flex items-center gap-2"><input type="text" id="inv-search" placeholder="Search inventory..." class="border border-slate-300 rounded px-3 py-2 w-64 focus:outline-none focus:ring-2 focus:ring-blue-500"><button id="btn-add-item" class="bg-blue-600 text-white px-4 py-2 rounded font-bold hover:bg-blue-700">+ Add New Item</button></div>
+            <div class="flex items-center gap-2 flex-wrap">
+                <input type="text" id="inv-search" placeholder="Search inventory..." class="border border-slate-300 rounded px-3 py-2 w-48 sm:w-64 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <select id="inv-sort" class="border border-slate-300 rounded px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <option value="name-asc">A-Z</option>
+                    <option value="name-desc">Z-A</option>
+                    <option value="sell-high">Selling Price (High-Low)</option>
+                    <option value="sell-low">Selling Price (Low-High)</option>
+                    <option value="buy-high">Buying Price (High-Low)</option>
+                    <option value="buy-low">Buying Price (Low-High)</option>
+                </select>
+                <button id="btn-add-item" class="bg-blue-600 text-white px-4 py-2 rounded font-bold hover:bg-blue-700 whitespace-nowrap">+ Add New</button>
+            </div>
         </div>
         
         <div class="bg-white rounded-xl shadow border border-slate-200 overflow-hidden">
