@@ -713,20 +713,7 @@ window.voidSale = async (id) => {
 
 
 // ─── LEDGER TOGGLE ────────────────────────────────────────────────────────────
-let ledgerVisible = false;
-
-// Ledger Auto-hide logic
-let ledgerTimer;
-function resetLedgerTimer() {
-    clearTimeout(ledgerTimer);
-    if (ledgerVisible) {
-        ledgerTimer = setTimeout(() => {
-            if (ledgerVisible) document.getElementById('btn-toggle-ledger').click();
-        }, 5 * 60 * 1000);
-    }
-}
-document.addEventListener('mousemove', resetLedgerTimer);
-document.addEventListener('keydown', resetLedgerTimer);
+let ledgerVisible = true;
 
 document.getElementById('btn-toggle-ledger').addEventListener('click', () => {
     ledgerVisible = !ledgerVisible;
@@ -737,7 +724,7 @@ document.getElementById('btn-toggle-ledger').addEventListener('click', () => {
     if (ledgerVisible) {
         table.classList.remove('hidden');
         totals.classList.remove('hidden');
-        icon.textContent = '👁';
+        icon.textContent = '👁️';
         label.textContent = 'Hide';
     } else {
         table.classList.add('hidden');
@@ -745,7 +732,6 @@ document.getElementById('btn-toggle-ledger').addEventListener('click', () => {
         icon.textContent = '🚫';
         label.textContent = 'Show';
     }
-    resetLedgerTimer();
 });
 
 // ─── QUICK EXPENSE LOGGER ─────────────────────────────────────────────────────
