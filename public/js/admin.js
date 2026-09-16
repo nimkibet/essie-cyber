@@ -58,8 +58,27 @@ async function load() {
         if(!shifts[key]) shifts[key] = { date, userId: x.cashier_id, user: x.users?.username, count: 0 };
         shifts[key].count++;
     });
-    const wageMap = {}; (w||[]).forEach(x => wageMap[`${x.work_date}_${x.user_id}`] = x.wage_assigned);
-    
+    const wageMap = {}; 
+    (w||[]).forEach(x => {
+        wageMap[`${x.work_date}_${x.user_id}`] = x.wage_assigned;
+        const key = `${x.work_date}_${x.user_id}`;
+        if (!shifts[key]) {
+            shifts[key] = { date: x.work_date, userId: x.user_id, user: 'Unknown (Logged)', count: 0 };
+            // Optional: We can fetch the username if we query it, but attendance_log doesn't have a join on users yet.
+            // Let's just do a basic fallback or we can query users separately.
+        }
+    });
+
+    // Let's try to map user IDs to names just in case
+    const {data: allUsers} = await supabase.from('users').select('id, username');
+    const userDict = {};
+    (allUsers||[]).forEach(u => userDict[u.id] = u.username);
+    Object.values(shifts).forEach(sh => {
+        if (sh.user === 'Unknown (Logged)' || !sh.user) {
+            sh.user = userDict[sh.userId] || 'Unknown';
+        }
+    });
+
     const wt = document.getElementById('wage-tbody'); wt.innerHTML = '';
     Object.values(shifts).sort((a,b)=>b.date.localeCompare(a.date)).forEach(sh => {
         const wage = wageMap[`${sh.date}_${sh.userId}`] || 0;

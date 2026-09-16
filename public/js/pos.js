@@ -883,6 +883,16 @@ document.getElementById('btn-open-resource').addEventListener('click', async () 
     const btn = document.getElementById('btn-open-resource');
     btn.disabled = true; btn.textContent = 'Opening...';
     try {
+        if (!navigator.onLine) {
+            throw new Error("You must be online to open a bulk resource right now.");
+        }
+
+        // Auto-exhaust any currently active resource with the same name
+        await supabase.from('resources')
+            .update({ status: 'exhausted' })
+            .eq('name', name)
+            .eq('status', 'active');
+
         const { error } = await supabase.from('resources').insert([{
             name: name,
             units: qty,

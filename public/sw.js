@@ -1,4 +1,4 @@
-const CACHE_NAME = 'essie-cyber-v57-multi';
+const CACHE_NAME = 'essie-cyber-v58-multi';
 
 // Only pre-cache the offline fallback page at install time.
 // Everything else gets cached as the user visits it (cache-on-navigate).
