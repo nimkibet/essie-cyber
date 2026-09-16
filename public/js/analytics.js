@@ -51,7 +51,7 @@ async function load() {
     else resQ = resQ.gte('opened_at', `${dateFilter}T00:00:00Z`).lt('opened_at', `${nextDateStr}T00:00:00Z`);
 
     // 3. Fetch Fixed Overheads
-    let ovQ = supabase.from('overhead_entries').select('rent, electricity, wifi_internet');
+    let ovQ = supabase.from('overhead_entries').select('rent, electricity, wifi_internet, other_fixed');
     if (periodStr === 'month') ovQ = ovQ.eq('period', ym);
     else ovQ = ovQ.gte('created_at', `${dateFilter}T00:00:00Z`).lt('created_at', `${nextDateStr}T00:00:00Z`);
 
@@ -93,7 +93,7 @@ async function load() {
     if (includeBulk) {
         currentResources.forEach(r => currentTotalExpenses += (r.cost || 0));
         currentOverheads.forEach(o => {
-            currentTotalExpenses += (o.rent || 0) + (o.electricity || 0) + (o.wifi_internet || 0);
+            currentTotalExpenses += (o.rent || 0) + (o.electricity || 0) + (o.wifi_internet || 0) + (o.other_fixed || 0);
         });
     }
 
@@ -154,6 +154,7 @@ async function load() {
             if (o.rent) { uiFixed += o.rent; uiDeductions.push({ item: '[Fixed] Rent', cost: o.rent }); }
             if (o.electricity) { uiFixed += o.electricity; uiDeductions.push({ item: '[Fixed] Electricity', cost: o.electricity }); }
             if (o.wifi_internet) { uiFixed += o.wifi_internet; uiDeductions.push({ item: '[Fixed] WiFi', cost: o.wifi_internet }); }
+            if (o.other_fixed) { uiFixed += o.other_fixed; uiDeductions.push({ item: '[Fixed] Other', cost: o.other_fixed }); }
         });
     }
 
@@ -361,6 +362,7 @@ document.getElementById('btn-dl-report').addEventListener('click', () => {
         if (o.rent) { fixedList.push(`Rent: Ksh ${o.rent.toLocaleString()}`); fTotal += o.rent; pdfTotalExpenses += o.rent; }
         if (o.electricity) { fixedList.push(`Elec: Ksh ${o.electricity.toLocaleString()}`); fTotal += o.electricity; pdfTotalExpenses += o.electricity; }
         if (o.wifi_internet) { fixedList.push(`WiFi: Ksh ${o.wifi_internet.toLocaleString()}`); fTotal += o.wifi_internet; pdfTotalExpenses += o.wifi_internet; }
+        if (o.other_fixed) { fixedList.push(`Other Fixed: Ksh ${o.other_fixed.toLocaleString()}`); fTotal += o.other_fixed; pdfTotalExpenses += o.other_fixed; }
     });
 
     doc.setTextColor(50, 50, 50);
