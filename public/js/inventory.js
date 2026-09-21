@@ -197,42 +197,59 @@ load();
 document.getElementById('inv-search').addEventListener('input', renderTable);
 document.getElementById('inv-sort').addEventListener('change', renderTable);
 
-document.getElementById('btn-export-excel').addEventListener('click', () => {
-    if (allInventory.length === 0) {
-        alert("No inventory data to export.");
-        return;
+document.getElementById('btn-export-excel').addEventListener('click', async () => {
+    const btn = document.getElementById('btn-export-excel');
+    const originalText = btn.innerText;
+    
+    try {
+        btn.innerText = "Exporting...";
+        btn.disabled = true;
+
+        // Fetch fresh data directly from Supabase
+        const { data, error } = await supabase.from('inventory').select('*').order('name');
+        
+        if (error) throw error;
+        
+        if (!data || data.length === 0) {
+            alert("No inventory data to export.");
+            return;
+        }
+
+        // Prepare data for Excel
+        const excelData = data.map(item => ({
+            'Item Name': item.name || 'Unnamed Item',
+            'Category': item.is_service ? 'Service' : (item.type === 'fixed' ? 'Fixed Price' : 'Variable Price'),
+            'Buying Price (Ksh)': item.buying_price || 0,
+            'Selling Price (Ksh)': item.selling_price || 0,
+            'Stock Quantity': item.is_service ? 'N/A' : (item.stock_quantity || 0),
+            'Potential Profit per Item (Ksh)': (item.selling_price || 0) - (item.buying_price || 0)
+        }));
+
+        // Create a new workbook and worksheet
+        const worksheet = XLSX.utils.json_to_sheet(excelData);
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, "Inventory List");
+
+        // Auto-size columns for better formatting
+        const max_name_width = excelData.reduce((w, r) => Math.max(w, r['Item Name'].length), 20);
+        worksheet['!cols'] = [
+            { wch: max_name_width + 2 }, // Item Name
+            { wch: 15 }, // Category
+            { wch: 20 }, // Buying Price
+            { wch: 20 }, // Selling Price
+            { wch: 15 }, // Stock Quantity
+            { wch: 30 }  // Potential Profit
+        ];
+
+        // Generate Excel file and trigger download
+        const dateStr = new Date().toISOString().split('T')[0];
+        XLSX.writeFile(workbook, `Essie_Cyber_Inventory_${dateStr}.xlsx`);
+        
+    } catch (err) {
+        console.error("Export to Excel failed:", err);
+        alert("Failed to export Excel. Please check console for details.");
+    } finally {
+        btn.innerText = originalText;
+        btn.disabled = false;
     }
-
-    // Sort the inventory by name to be organized
-    const sortedInventory = [...allInventory].sort((a, b) => a.name.localeCompare(b.name));
-
-    // Prepare data for Excel
-    const excelData = sortedInventory.map(item => ({
-        'Item Name': item.name,
-        'Category': item.is_service ? 'Service' : (item.type === 'fixed' ? 'Fixed Price' : 'Variable Price'),
-        'Buying Price (Ksh)': item.buying_price || 0,
-        'Selling Price (Ksh)': item.selling_price || 0,
-        'Stock Quantity': item.is_service ? 'N/A' : (item.stock_quantity || 0),
-        'Potential Profit per Item (Ksh)': (item.selling_price || 0) - (item.buying_price || 0)
-    }));
-
-    // Create a new workbook and worksheet
-    const worksheet = XLSX.utils.json_to_sheet(excelData);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Inventory List");
-
-    // Auto-size columns for better formatting
-    const max_name_width = excelData.reduce((w, r) => Math.max(w, r['Item Name'].length), 20);
-    worksheet['!cols'] = [
-        { wch: max_name_width + 2 }, // Item Name
-        { wch: 15 }, // Category
-        { wch: 20 }, // Buying Price
-        { wch: 20 }, // Selling Price
-        { wch: 15 }, // Stock Quantity
-        { wch: 30 }  // Potential Profit
-    ];
-
-    // Generate Excel file and trigger download
-    const dateStr = new Date().toISOString().split('T')[0];
-    XLSX.writeFile(workbook, `Essie_Cyber_Inventory_${dateStr}.xlsx`);
 });
