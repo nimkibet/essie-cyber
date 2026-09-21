@@ -8,6 +8,7 @@
     <meta name="theme-color" content="#1e293b">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-track { background: #f1f5f9; }
@@ -97,6 +98,7 @@
                     <option value="buy-high">Buying Price (High-Low)</option>
                     <option value="buy-low">Buying Price (Low-High)</option>
                 </select>
+                <button id="btn-export-excel" class="bg-green-600 text-white px-4 py-2 rounded font-bold hover:bg-green-700 whitespace-nowrap">Export Excel</button>
                 <button id="btn-add-item" class="bg-blue-600 text-white px-4 py-2 rounded font-bold hover:bg-blue-700 whitespace-nowrap">+ Add New</button>
             </div>
         </div>
