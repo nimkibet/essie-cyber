@@ -29,7 +29,7 @@ async function loadBindingSettings() {
     try {
         if (!navigator.onLine) throw new Error('Offline');
         const { data: rows } = await supabase.from('settings').select('key, value')
-            .in('key', ['binding_groups', 'binding_linked_resources', 'binding_show_tape']);
+            .in('key', ['binding_groups', 'binding_linked_resources', 'binding_show_tape', 'quick_add_order']);
         if (rows) localStorage.setItem('essie_settings_cache', JSON.stringify(rows));
         applySettingsRows(rows || []);
     } catch (e) {
@@ -38,6 +38,7 @@ async function loadBindingSettings() {
     }
 }
 
+let quickAddOrder = [];
 function applySettingsRows(rows) {
     const map = {};
     rows.forEach(r => map[r.key] = r.value);
@@ -50,6 +51,7 @@ function applySettingsRows(rows) {
             .filter(i => i.name === 'EMBOSSED' || i.name === 'PVC (BLUE)')
             .map(i => ({ id: i.id, name: i.name }));
     }
+    quickAddOrder = map['quick_add_order'] ? JSON.parse(map['quick_add_order']) : [];
 }
 
 function renderBindingOptions() {
@@ -215,6 +217,15 @@ function renderQuickAddButtons() {
         const fallbackNames = ['Print / Copy', 'Typesetting', 'Binding Service'];
         quickItems = inventory.filter(i => fallbackNames.includes(i.name));
     }
+
+    quickItems.sort((a, b) => {
+        let idxA = quickAddOrder.indexOf(a.id);
+        let idxB = quickAddOrder.indexOf(b.id);
+        if (idxA === -1) idxA = 9999;
+        if (idxB === -1) idxB = 9999;
+        if (idxA !== idxB) return idxA - idxB;
+        return a.name.localeCompare(b.name);
+    });
 
     if (quickItems.length === 0) {
         container.innerHTML = '<span class="text-xs text-slate-400 italic col-span-3">No Quick Add items configured. Visit Settings to enable some.</span>';

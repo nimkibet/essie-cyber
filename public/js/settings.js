@@ -9,14 +9,17 @@ let dragItem = null;
 // ─────────────────────────────────────────────────────────────────────────────
 // INIT
 // ─────────────────────────────────────────────────────────────────────────────
+let quickAddOrder = [];
 async function init() {
     const { data: inv } = await supabase.from('inventory').select('id, name, selling_price, buying_price, is_quick_add').order('name');
     allInventory = inv || [];
 
     // Load saved settings from DB
-    const { data: rows } = await supabase.from('settings').select('key, value').in('key', ['binding_groups', 'binding_linked_resources', 'binding_show_tape']);
+    const { data: rows } = await supabase.from('settings').select('key, value').in('key', ['binding_groups', 'binding_linked_resources', 'binding_show_tape', 'quick_add_order']);
     const settingsMap = {};
     (rows || []).forEach(r => settingsMap[r.key] = r.value);
+    
+    quickAddOrder = settingsMap['quick_add_order'] ? JSON.parse(settingsMap['quick_add_order']) : [];
 
     groups = settingsMap['binding_groups'] ? JSON.parse(settingsMap['binding_groups']) : [];
     linkedResources = settingsMap['binding_linked_resources'] ? JSON.parse(settingsMap['binding_linked_resources']) : [
@@ -266,13 +269,25 @@ window.saveLinkedResources = async function() {
 let qaDragItem = null;
 let qaSearchTerm = '';
 let dirtyQAItems = new Set();
+let qaOrderChanged = false;
 
 function renderQuickAddSettings() {
     const poolContainer = document.getElementById('qa-pool-container');
     const activeContainer = document.getElementById('qa-active-container');
     if (!poolContainer || !activeContainer) return;
 
-    const activeItems = allInventory.filter(i => i.is_quick_add === true || i.is_quick_add === 1);
+    let activeItems = allInventory.filter(i => i.is_quick_add === true || i.is_quick_add === 1);
+    
+    // Sort active items based on our custom quickAddOrder array
+    activeItems.sort((a, b) => {
+        let idxA = quickAddOrder.indexOf(a.id);
+        let idxB = quickAddOrder.indexOf(b.id);
+        if (idxA === -1) idxA = 9999;
+        if (idxB === -1) idxB = 9999;
+        if (idxA !== idxB) return idxA - idxB;
+        return a.name.localeCompare(b.name);
+    });
+
     const poolItems = allInventory.filter(i => {
         if (i.is_quick_add === true || i.is_quick_add === 1) return false;
         if (qaSearchTerm && !i.name.toLowerCase().includes(qaSearchTerm)) return false;
@@ -282,8 +297,13 @@ function renderQuickAddSettings() {
     activeContainer.innerHTML = activeItems.length === 0 
         ? '<span class="text-xs text-slate-400 italic w-full text-center mt-2">Drop items here</span>'
         : activeItems.map(item => `
-            <div class="item-chip bg-blue-600 text-white shadow-sm text-sm font-bold px-3 py-1.5 rounded-md flex items-center gap-2"
-                draggable="true" ondragstart="qaDragItem = '${item.id}'; event.dataTransfer.effectAllowed='move'">
+            <div class="item-chip bg-blue-600 text-white shadow-sm text-sm font-bold px-3 py-1.5 rounded-md flex items-center gap-2 cursor-move"
+                data-id="${item.id}"
+                draggable="true" 
+                ondragstart="qaDragItem = '${item.id}'; event.dataTransfer.effectAllowed='move'"
+                ondragover="event.preventDefault(); this.classList.add('opacity-50')"
+                ondragleave="this.classList.remove('opacity-50')"
+                ondrop="event.stopPropagation(); this.classList.remove('opacity-50'); dropToQAActive(event)">
                 <span>${item.name}</span>
                 <button onclick="removeQAItem('${item.id}')" class="text-blue-200 hover:text-white font-black leading-none">×</button>
             </div>
@@ -292,7 +312,7 @@ function renderQuickAddSettings() {
     poolContainer.innerHTML = poolItems.length === 0
         ? '<span class="text-xs text-slate-400 italic w-full text-center mt-2">No items found</span>'
         : poolItems.map(item => `
-            <div class="item-chip bg-white border border-slate-300 text-slate-700 shadow-sm text-xs font-bold px-2 py-1 rounded-md flex items-center gap-1 hover:bg-slate-50 transition-colors"
+            <div class="item-chip bg-white border border-slate-300 text-slate-700 shadow-sm text-xs font-bold px-2 py-1 rounded-md flex items-center gap-1 hover:bg-slate-50 transition-colors cursor-move"
                 draggable="true" ondragstart="qaDragItem = '${item.id}'; event.dataTransfer.effectAllowed='move'">
                 <span>${item.name}</span>
             </div>
@@ -301,13 +321,34 @@ function renderQuickAddSettings() {
 
 window.dropToQAActive = function(event) {
     event.preventDefault();
-    event.currentTarget.classList.remove('drag-over');
+    document.getElementById('qa-active-container').classList.remove('drag-over');
     if (!qaDragItem) return;
+    
     const item = allInventory.find(i => i.id === qaDragItem);
-    if (item) {
+    if (!item) return;
+
+    if (!item.is_quick_add) {
         item.is_quick_add = true;
         dirtyQAItems.add(item.id);
     }
+
+    // Determine drop position for sorting
+    quickAddOrder = quickAddOrder.filter(id => id !== qaDragItem);
+    const dropTarget = event.target.closest('.item-chip');
+    
+    if (dropTarget && dropTarget.dataset.id) {
+        const targetId = dropTarget.dataset.id;
+        const targetIndex = quickAddOrder.indexOf(targetId);
+        if (targetIndex !== -1) {
+            quickAddOrder.splice(targetIndex, 0, qaDragItem);
+        } else {
+            quickAddOrder.push(qaDragItem);
+        }
+    } else {
+        quickAddOrder.push(qaDragItem);
+    }
+
+    qaOrderChanged = true;
     qaDragItem = null;
     renderQuickAddSettings();
 };
@@ -321,6 +362,9 @@ window.dropToQAPool = function(event) {
         item.is_quick_add = false;
         dirtyQAItems.add(item.id);
     }
+    
+    quickAddOrder = quickAddOrder.filter(id => id !== qaDragItem);
+    qaOrderChanged = true;
     qaDragItem = null;
     renderQuickAddSettings();
 };
@@ -331,6 +375,8 @@ window.removeQAItem = function(id) {
         item.is_quick_add = false;
         dirtyQAItems.add(item.id);
     }
+    quickAddOrder = quickAddOrder.filter(itemId => itemId !== id);
+    qaOrderChanged = true;
     renderQuickAddSettings();
 };
 
@@ -341,7 +387,7 @@ document.getElementById('qa-search')?.addEventListener('input', function() {
 
 window.saveQuickAddSettings = async function() {
     const btn = document.getElementById('btn-save-qa');
-    if (dirtyQAItems.size === 0) {
+    if (dirtyQAItems.size === 0 && !qaOrderChanged) {
         btn.textContent = '✅ Up to date';
         setTimeout(() => btn.textContent = '💾 Save Quick Add Buttons', 2000);
         return;
@@ -353,8 +399,15 @@ window.saveQuickAddSettings = async function() {
             const item = allInventory.find(i => i.id === id);
             return supabase.from('inventory').update({ is_quick_add: !!item.is_quick_add }).eq('id', id);
         });
+        
+        if (qaOrderChanged) {
+            promises.push(supabase.from('settings').upsert([{ key: 'quick_add_order', value: JSON.stringify(quickAddOrder) }], { onConflict: 'key' }));
+        }
+
         await Promise.all(promises);
+        
         dirtyQAItems.clear();
+        qaOrderChanged = false;
         btn.textContent = '✅ Saved!';
         setTimeout(() => { btn.textContent = '💾 Save Quick Add Buttons'; btn.disabled = false; }, 2000);
     } catch(e) {
