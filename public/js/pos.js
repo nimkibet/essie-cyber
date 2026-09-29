@@ -361,7 +361,9 @@ window.setQuickServiceUI = function(name) {
     });
     
     const bindingContainer = document.getElementById('binding-options-container');
-    const amountInput = document.getElementById('quick-amount');
+        const amountInput = document.getElementById('quick-amount');
+    const qtyInput = document.getElementById('quick-qty');
+    if (qtyInput) qtyInput.value = 1;
     
     if (bindingContainer) {
         if (name === 'Binding Service') {
@@ -509,6 +511,16 @@ document.getElementById('btn-collect-debt').addEventListener('click', async () =
 
 
 
+document.getElementById('quick-qty').addEventListener('input', (e) => {
+    const qty = parseInt(e.target.value) || 1;
+    if (activeQuick !== 'Binding Service') {
+        const item = inventory.find(i => i.name === activeQuick);
+        if (item && item.selling_price > 0) {
+            document.getElementById('quick-amount').value = item.selling_price * qty;
+        }
+    }
+});
+
 document.getElementById('quick-pay-mpesa').addEventListener('click', () => window.setQuickPayUI('M-Pesa'));
 document.getElementById('quick-pay-cash').addEventListener('click', () => window.setQuickPayUI('Cash'));
 
@@ -555,7 +567,7 @@ document.getElementById('quick-log-btn').addEventListener('click', async () => {
           }
           // Always deduct linked resources (covers) for any binding job
           await deductBindingMaterials(logQty);
-      } else {
+            } else {
           let item = inventory.find(i => i.name === activeQuick);
           if (!item) { 
               try {
@@ -563,12 +575,24 @@ document.getElementById('quick-log-btn').addEventListener('click', async () => {
                       const {data} = await supabase.from('inventory').insert([{name: activeQuick, type: 'variable', selling_price: 0, is_service: true}]).select().single(); 
                       item = data; 
                   } else {
-                      item = { id: `temp-${activeQuick.replace(/\s+/g,'-')}`, name: activeQuick, type: 'variable', selling_price: 0, is_service: true };
+                      item = { id: 	emp- + activeQuick.replace(/\s+/g,'-'), name: activeQuick, type: 'variable', selling_price: 0, is_service: true };
                   }
-              } catch(e) { item = { id: `temp-${activeQuick.replace(/\s+/g,'-')}`, name: activeQuick, type: 'variable', selling_price: 0, is_service: true }; }
+              } catch(e) { item = { id: 	emp- + activeQuick.replace(/\s+/g,'-'), name: activeQuick, type: 'variable', selling_price: 0, is_service: true }; }
               inventory.push(item); 
           }
           logItem = item;
+          
+          const qtyInput = document.getElementById('quick-qty');
+          logQty = qtyInput ? (parseInt(qtyInput.value) || 1) : 1;
+          logProfit = amt - ((logItem.buying_price || 0) * logQty);
+
+          if (!logItem.is_service && typeof logItem.stock_quantity === 'number') {
+              const newStock = logItem.stock_quantity - logQty;
+              try {
+                  if (navigator.onLine) await supabase.from('inventory').update({ stock_quantity: newStock }).eq('id', logItem.id);
+                  logItem.stock_quantity = newStock;
+              } catch(e) {}
+          }
       }
 
       const _qRes = await insertSaleWithOfflineSupport(supabase, {
@@ -576,16 +600,18 @@ document.getElementById('quick-log-btn').addEventListener('click', async () => {
           calculated_profit: logProfit, cashier_id: currentUser.id,
           payment_method: quickPay.toLowerCase().replace('-', '')
       });
-      if (_qRes.offline) {
+            if (_qRes.offline) {
           document.getElementById('quick-amount').value = '';
+          if(document.getElementById('quick-qty')) document.getElementById('quick-qty').value = 1;
           if(window.setQuickPayUI) window.setQuickPayUI('M-Pesa');
           if(window.setQuickServiceUI) window.setQuickServiceUI('Print / Copy');
-          alert('No internet — sale saved locally and will sync when back online.');
+          alert('No internet - sale saved locally and will sync when back online.');
           setTimeout(()=>document.getElementById('quick-amount').focus(), 100);
           return;
       }
 
       document.getElementById('quick-amount').value = '';
+      if(document.getElementById('quick-qty')) document.getElementById('quick-qty').value = 1;
       if(window.setQuickPayUI) window.setQuickPayUI('M-Pesa');
       if(window.setQuickServiceUI) window.setQuickServiceUI('Print / Copy');
       fetchTodaysSales();
