@@ -270,6 +270,8 @@ let qaDragItem = null;
 let qaSearchTerm = '';
 let dirtyQAItems = new Set();
 let qaOrderChanged = false;
+let qaSortableActive = null;
+let qaSortablePool = null;
 
 function renderQuickAddSettings() {
     const poolContainer = document.getElementById('qa-pool-container');
@@ -294,97 +296,69 @@ function renderQuickAddSettings() {
         return true;
     });
 
-    activeContainer.innerHTML = activeItems.length === 0 
-        ? '<span class="text-xs text-slate-400 italic w-full text-center mt-2">Drop items here</span>'
-        : activeItems.map(item => `
-            <div class="item-chip bg-blue-600 text-white shadow-sm text-sm font-bold px-3 py-1.5 rounded-md flex items-center gap-2 cursor-move"
-                data-id="${item.id}"
-                draggable="true" 
-                ondragstart="qaDragItem = '${item.id}'; event.dataTransfer.effectAllowed='move'"
-                ondragover="qaDragOver(event)"
-                ondrop="event.stopPropagation(); dropToQAActive(event)">
-                <span>${item.name}</span>
-                <button onclick="removeQAItem('${item.id}')" class="text-blue-200 hover:text-white font-black leading-none">Ã—</button>
-            </div>
-        `).join('');
+    activeContainer.innerHTML = activeItems.map(item => 
+        <div class="item-chip bg-blue-600 text-white shadow-sm text-sm font-bold px-3 py-1.5 rounded-md flex items-center gap-2 cursor-grab active:cursor-grabbing"
+            data-id="">
+            <span></span>
+            <button onclick="removeQAItem('')" class="text-blue-200 hover:text-white font-black leading-none px-1">×</button>
+        </div>
+    ).join('');
+
+    if (activeItems.length === 0) {
+        activeContainer.innerHTML = '<span id="qa-active-empty" class="text-xs text-slate-400 italic w-full text-center mt-2 pointer-events-none">Drop items here</span>';
+    }
 
     poolContainer.innerHTML = poolItems.length === 0
-        ? '<span class="text-xs text-slate-400 italic w-full text-center mt-2">No items found</span>'
-        : poolItems.map(item => `
-            <div class="item-chip bg-white border border-slate-300 text-slate-700 shadow-sm text-xs font-bold px-2 py-1 rounded-md flex items-center gap-1 hover:bg-slate-50 transition-colors cursor-move"
-                draggable="true" ondragstart="qaDragItem = '${item.id}'; event.dataTransfer.effectAllowed='move'">
-                <span>${item.name}</span>
+        ? '<span class="text-xs text-slate-400 italic w-full text-center mt-2 pointer-events-none">No items found</span>'
+        : poolItems.map(item => 
+            <div class="item-chip bg-white border border-slate-300 text-slate-700 shadow-sm text-xs font-bold px-2 py-1 rounded-md flex items-center gap-1 hover:bg-slate-50 transition-colors cursor-grab active:cursor-grabbing"
+                data-id="">
+                <span></span>
             </div>
-        `).join('');
+        ).join('');
+
+    // Initialize Sortable if not already
+    if (window.Sortable && !qaSortableActive) {
+        qaSortableActive = new Sortable(activeContainer, {
+            group: 'quickadd', // set both lists to same group
+            animation: 150,
+            ghostClass: 'opacity-50',
+            onAdd: function (evt) {
+                // Item dragged from pool TO active
+                const id = evt.item.dataset.id;
+                const item = allInventory.find(i => i.id === id);
+                if (item) {
+                    item.is_quick_add = true;
+                    dirtyQAItems.add(item.id);
+                }
+                updateQuickAddOrderFromDOM();
+                // We re-render to get the 'X' button on the chip
+                renderQuickAddSettings();
+            },
+            onUpdate: function (evt) {
+                // Item re-ordered WITHIN active
+                updateQuickAddOrderFromDOM();
+            }
+        });
+
+        qaSortablePool = new Sortable(poolContainer, {
+            group: 'quickadd',
+            animation: 150,
+            ghostClass: 'opacity-50',
+            onAdd: function (evt) {
+                // Item dragged from active TO pool
+                const id = evt.item.dataset.id;
+                removeQAItem(id); // reuse function
+            }
+        });
+    }
 }
 
-window.qaDragOver = function(event) {
-    event.preventDefault(); // Must prevent default to allow drop
-    const dropTarget = event.target.closest('.item-chip');
-    if (dropTarget && qaDragItem && dropTarget.dataset.id !== qaDragItem) {
-        const draggedNode = document.querySelector(`#qa-active-container .item-chip[data-id="${qaDragItem}"]`);
-        if (draggedNode && draggedNode.parentNode === dropTarget.parentNode) {
-            // Fluidly auto-sort: swap them in the DOM instantly based on mouse position!
-            const rect = dropTarget.getBoundingClientRect();
-            const offset = event.clientX - rect.left;
-            if (offset < rect.width / 2) {
-                dropTarget.parentNode.insertBefore(draggedNode, dropTarget);
-            } else {
-                dropTarget.parentNode.insertBefore(draggedNode, dropTarget.nextSibling);
-            }
-        }
-    }
-};
-
-window.dropToQAActive = function(event) {
-    event.preventDefault();
-    document.getElementById('qa-active-container').classList.remove('drag-over');
-    if (!qaDragItem) return;
-    
-    const item = allInventory.find(i => i.id === qaDragItem);
-    if (!item) return;
-
-    if (!item.is_quick_add) {
-        item.is_quick_add = true;
-        dirtyQAItems.add(item.id);
-        
-        // If it was just dragged from the pool, physically move the node to the active container now
-        // so we can read its position. 
-        const draggedNode = document.querySelector(`#qa-pool-container .item-chip[data-id="${qaDragItem}"]`);
-        const dropTarget = event.target.closest('.item-chip');
-        if (draggedNode) {
-            if (dropTarget) {
-                dropTarget.parentNode.insertBefore(draggedNode, dropTarget);
-            } else {
-                document.getElementById('qa-active-container').appendChild(draggedNode);
-            }
-        }
-    }
-
-    // Capture the absolute final order directly from how it looks on screen!
+function updateQuickAddOrderFromDOM() {
     const activeNodes = document.getElementById('qa-active-container').querySelectorAll('.item-chip');
     quickAddOrder = Array.from(activeNodes).map(el => el.dataset.id).filter(id => id);
-
     qaOrderChanged = true;
-    qaDragItem = null;
-    renderQuickAddSettings();
-};
-
-window.dropToQAPool = function(event) {
-    event.preventDefault();
-    event.currentTarget.classList.remove('drag-over');
-    if (!qaDragItem) return;
-    const item = allInventory.find(i => i.id === qaDragItem);
-    if (item) {
-        item.is_quick_add = false;
-        dirtyQAItems.add(item.id);
-    }
-    
-    quickAddOrder = quickAddOrder.filter(id => id !== qaDragItem);
-    qaOrderChanged = true;
-    qaDragItem = null;
-    renderQuickAddSettings();
-};
+}
 
 window.removeQAItem = function(id) {
     const item = allInventory.find(i => i.id === id);
@@ -395,9 +369,7 @@ window.removeQAItem = function(id) {
     quickAddOrder = quickAddOrder.filter(itemId => itemId !== id);
     qaOrderChanged = true;
     renderQuickAddSettings();
-};
-
-document.getElementById('qa-search')?.addEventListener('input', function() {
+};document.getElementById('qa-search')?.addEventListener('input', function() {
     qaSearchTerm = this.value.toLowerCase();
     renderQuickAddSettings();
 });
