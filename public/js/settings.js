@@ -263,61 +263,105 @@ window.saveLinkedResources = async function() {
 // FEATURE 3: Quick Add Buttons Management
 // ─────────────────────────────────────────────────────────────────────────────
 
-function renderQuickAddSettings(filter = '') {
-    const list = document.getElementById('qa-list');
-    if (!list) return;
+let qaDragItem = null;
+let qaSearchTerm = '';
+let dirtyQAItems = new Set();
 
-    const term = filter.toLowerCase();
-    const filtered = allInventory.filter(i =>
-        !term || i.name.toLowerCase().includes(term)
-    );
+function renderQuickAddSettings() {
+    const poolContainer = document.getElementById('qa-pool-container');
+    const activeContainer = document.getElementById('qa-active-container');
+    if (!poolContainer || !activeContainer) return;
 
-    if (filtered.length === 0) {
-        list.innerHTML = '<div class="text-xs text-slate-400 italic p-2">No items found.</div>';
+    const activeItems = allInventory.filter(i => i.is_quick_add === true || i.is_quick_add === 1);
+    const poolItems = allInventory.filter(i => {
+        if (i.is_quick_add === true || i.is_quick_add === 1) return false;
+        if (qaSearchTerm && !i.name.toLowerCase().includes(qaSearchTerm)) return false;
+        return true;
+    });
+
+    activeContainer.innerHTML = activeItems.length === 0 
+        ? '<span class="text-xs text-slate-400 italic w-full text-center mt-2">Drop items here</span>'
+        : activeItems.map(item => `
+            <div class="item-chip bg-blue-600 text-white shadow-sm text-sm font-bold px-3 py-1.5 rounded-md flex items-center gap-2"
+                draggable="true" ondragstart="qaDragItem = '${item.id}'; event.dataTransfer.effectAllowed='move'">
+                <span>${item.name}</span>
+                <button onclick="removeQAItem('${item.id}')" class="text-blue-200 hover:text-white font-black leading-none">×</button>
+            </div>
+        `).join('');
+
+    poolContainer.innerHTML = poolItems.length === 0
+        ? '<span class="text-xs text-slate-400 italic w-full text-center mt-2">No items found</span>'
+        : poolItems.map(item => `
+            <div class="item-chip bg-white border border-slate-300 text-slate-700 shadow-sm text-xs font-bold px-2 py-1 rounded-md flex items-center gap-1 hover:bg-slate-50 transition-colors"
+                draggable="true" ondragstart="qaDragItem = '${item.id}'; event.dataTransfer.effectAllowed='move'">
+                <span>${item.name}</span>
+            </div>
+        `).join('');
+}
+
+window.dropToQAActive = function(event) {
+    event.preventDefault();
+    event.currentTarget.classList.remove('drag-over');
+    if (!qaDragItem) return;
+    const item = allInventory.find(i => i.id === qaDragItem);
+    if (item) {
+        item.is_quick_add = true;
+        dirtyQAItems.add(item.id);
+    }
+    qaDragItem = null;
+    renderQuickAddSettings();
+};
+
+window.dropToQAPool = function(event) {
+    event.preventDefault();
+    event.currentTarget.classList.remove('drag-over');
+    if (!qaDragItem) return;
+    const item = allInventory.find(i => i.id === qaDragItem);
+    if (item) {
+        item.is_quick_add = false;
+        dirtyQAItems.add(item.id);
+    }
+    qaDragItem = null;
+    renderQuickAddSettings();
+};
+
+window.removeQAItem = function(id) {
+    const item = allInventory.find(i => i.id === id);
+    if (item) {
+        item.is_quick_add = false;
+        dirtyQAItems.add(item.id);
+    }
+    renderQuickAddSettings();
+};
+
+document.getElementById('qa-search')?.addEventListener('input', function() {
+    qaSearchTerm = this.value.toLowerCase();
+    renderQuickAddSettings();
+});
+
+window.saveQuickAddSettings = async function() {
+    const btn = document.getElementById('btn-save-qa');
+    if (dirtyQAItems.size === 0) {
+        btn.textContent = '✅ Up to date';
+        setTimeout(() => btn.textContent = '💾 Save Quick Add Buttons', 2000);
         return;
     }
 
-    list.innerHTML = filtered.map(item => {
-        const isOn = item.is_quick_add === true || item.is_quick_add === 1;
-        return `
-        <div class="flex items-center justify-between px-3 py-2 rounded-lg border border-slate-100 hover:bg-slate-50 transition-colors">
-            <span class="text-sm font-medium text-slate-700">${item.name}</span>
-            <label class="relative inline-flex items-center cursor-pointer">
-                <input type="checkbox" class="sr-only peer qa-toggle" data-id="${item.id}" data-name="${item.name}" ${isOn ? 'checked' : ''}>
-                <div class="w-10 h-5 bg-slate-200 peer-checked:bg-blue-600 rounded-full peer peer-focus:ring-2 peer-focus:ring-blue-300 transition-colors after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-5"></div>
-            </label>
-        </div>`;
-    }).join('');
-
-    // Wire toggle handlers
-    list.querySelectorAll('.qa-toggle').forEach(chk => {
-        chk.addEventListener('change', async function() {
-            const itemId = this.dataset.id;
-            const enabled = this.checked;
-            this.disabled = true;
-            try {
-                const { error } = await supabase
-                    .from('inventory')
-                    .update({ is_quick_add: enabled })
-                    .eq('id', itemId);
-                if (error) throw error;
-                // Update local allInventory cache
-                const item = allInventory.find(i => i.id == itemId);
-                if (item) item.is_quick_add = enabled;
-            } catch (err) {
-                alert('Failed to update: ' + err.message);
-                this.checked = !enabled; // revert
-            } finally {
-                this.disabled = false;
-            }
+    btn.textContent = 'Saving...'; btn.disabled = true;
+    try {
+        const promises = Array.from(dirtyQAItems).map(id => {
+            const item = allInventory.find(i => i.id === id);
+            return supabase.from('inventory').update({ is_quick_add: !!item.is_quick_add }).eq('id', id);
         });
-    });
-}
-
-// Wire search box
-document.getElementById('qa-search')?.addEventListener('input', function() {
-    renderQuickAddSettings(this.value);
-});
+        await Promise.all(promises);
+        dirtyQAItems.clear();
+        btn.textContent = '✅ Saved!';
+        setTimeout(() => { btn.textContent = '💾 Save Quick Add Buttons'; btn.disabled = false; }, 2000);
+    } catch(e) {
+        alert('Error saving: ' + e.message);
+        btn.textContent = '💾 Save Quick Add Buttons'; btn.disabled = false;
+    }
+};
 
 init();
 
