@@ -301,9 +301,8 @@ function renderQuickAddSettings() {
                 data-id="${item.id}"
                 draggable="true" 
                 ondragstart="qaDragItem = '${item.id}'; event.dataTransfer.effectAllowed='move'"
-                ondragover="event.preventDefault(); this.classList.add('opacity-50')"
-                ondragleave="this.classList.remove('opacity-50')"
-                ondrop="event.stopPropagation(); this.classList.remove('opacity-50'); dropToQAActive(event)">
+                ondragover="qaDragOver(event)"
+                ondrop="event.stopPropagation(); dropToQAActive(event)">
                 <span>${item.name}</span>
                 <button onclick="removeQAItem('${item.id}')" class="text-blue-200 hover:text-white font-black leading-none">×</button>
             </div>
@@ -319,6 +318,24 @@ function renderQuickAddSettings() {
         `).join('');
 }
 
+window.qaDragOver = function(event) {
+    event.preventDefault(); // Must prevent default to allow drop
+    const dropTarget = event.target.closest('.item-chip');
+    if (dropTarget && qaDragItem && dropTarget.dataset.id !== qaDragItem) {
+        const draggedNode = document.querySelector(`#qa-active-container .item-chip[data-id="${qaDragItem}"]`);
+        if (draggedNode && draggedNode.parentNode === dropTarget.parentNode) {
+            // Fluidly auto-sort: swap them in the DOM instantly based on mouse position!
+            const rect = dropTarget.getBoundingClientRect();
+            const offset = event.clientX - rect.left;
+            if (offset < rect.width / 2) {
+                dropTarget.parentNode.insertBefore(draggedNode, dropTarget);
+            } else {
+                dropTarget.parentNode.insertBefore(draggedNode, dropTarget.nextSibling);
+            }
+        }
+    }
+};
+
 window.dropToQAActive = function(event) {
     event.preventDefault();
     document.getElementById('qa-active-container').classList.remove('drag-over');
@@ -330,23 +347,23 @@ window.dropToQAActive = function(event) {
     if (!item.is_quick_add) {
         item.is_quick_add = true;
         dirtyQAItems.add(item.id);
+        
+        // If it was just dragged from the pool, physically move the node to the active container now
+        // so we can read its position. 
+        const draggedNode = document.querySelector(`#qa-pool-container .item-chip[data-id="${qaDragItem}"]`);
+        const dropTarget = event.target.closest('.item-chip');
+        if (draggedNode) {
+            if (dropTarget) {
+                dropTarget.parentNode.insertBefore(draggedNode, dropTarget);
+            } else {
+                document.getElementById('qa-active-container').appendChild(draggedNode);
+            }
+        }
     }
 
-    // Determine drop position for sorting
-    quickAddOrder = quickAddOrder.filter(id => id !== qaDragItem);
-    const dropTarget = event.target.closest('.item-chip');
-    
-    if (dropTarget && dropTarget.dataset.id) {
-        const targetId = dropTarget.dataset.id;
-        const targetIndex = quickAddOrder.indexOf(targetId);
-        if (targetIndex !== -1) {
-            quickAddOrder.splice(targetIndex, 0, qaDragItem);
-        } else {
-            quickAddOrder.push(qaDragItem);
-        }
-    } else {
-        quickAddOrder.push(qaDragItem);
-    }
+    // Capture the absolute final order directly from how it looks on screen!
+    const activeNodes = document.getElementById('qa-active-container').querySelectorAll('.item-chip');
+    quickAddOrder = Array.from(activeNodes).map(el => el.dataset.id).filter(id => id);
 
     qaOrderChanged = true;
     qaDragItem = null;
