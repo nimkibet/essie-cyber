@@ -10,7 +10,7 @@ let dragItem = null;
 // INIT
 // ─────────────────────────────────────────────────────────────────────────────
 async function init() {
-    const { data: inv } = await supabase.from('inventory').select('id, name, selling_price, buying_price').order('name');
+    const { data: inv } = await supabase.from('inventory').select('id, name, selling_price, buying_price, is_quick_add').order('name');
     allInventory = inv || [];
 
     // Load saved settings from DB
