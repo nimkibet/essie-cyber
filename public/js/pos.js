@@ -361,6 +361,8 @@ window.setQuickServiceUI = function(name) {
     });
     
     const bindingContainer = document.getElementById('binding-options-container');
+    const amountInput = document.getElementById('quick-amount');
+    
     if (bindingContainer) {
         if (name === 'Binding Service') {
             bindingContainer.classList.remove('hidden');
@@ -373,10 +375,21 @@ window.setQuickServiceUI = function(name) {
                     || inventory.find(i => { const n = i.name.toLowerCase(); return n.includes('spiral') && !n.includes('a5'); })?.id;
                 if (firstId) window.selectBindingItem(firstId);
             } else {
-                document.getElementById('quick-amount').value = activeBindingItem.selling_price;
+                if(amountInput) amountInput.value = activeBindingItem.selling_price;
             }
         } else {
             bindingContainer.classList.add('hidden');
+            
+            // Auto-populate price if recorded in inventory
+            if (amountInput) {
+                const item = inventory.find(i => i.name === name);
+                if (item && item.selling_price > 0) {
+                    amountInput.value = item.selling_price;
+                } else {
+                    amountInput.value = ''; // clear if no fixed price
+                }
+                amountInput.focus();
+            }
         }
     }
 };
