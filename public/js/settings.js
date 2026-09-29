@@ -296,13 +296,13 @@ function renderQuickAddSettings() {
         return true;
     });
 
-    activeContainer.innerHTML = activeItems.map(item => 
+    activeContainer.innerHTML = activeItems.map(item => `
         <div class="item-chip bg-blue-600 text-white shadow-sm text-sm font-bold px-3 py-1.5 rounded-md flex items-center gap-2 cursor-grab active:cursor-grabbing"
-            data-id="">
-            <span></span>
-            <button onclick="removeQAItem('')" class="text-blue-200 hover:text-white font-black leading-none px-1">×</button>
+            data-id="${item.id}">
+            <span>${item.name}</span>
+            <button onclick="removeQAItem('${item.id}')" class="text-blue-200 hover:text-white font-black leading-none px-1">×</button>
         </div>
-    ).join('');
+    `).join('');
 
     if (activeItems.length === 0) {
         activeContainer.innerHTML = '<span id="qa-active-empty" class="text-xs text-slate-400 italic w-full text-center mt-2 pointer-events-none">Drop items here</span>';
@@ -310,12 +310,12 @@ function renderQuickAddSettings() {
 
     poolContainer.innerHTML = poolItems.length === 0
         ? '<span class="text-xs text-slate-400 italic w-full text-center mt-2 pointer-events-none">No items found</span>'
-        : poolItems.map(item => 
+        : poolItems.map(item => `
             <div class="item-chip bg-white border border-slate-300 text-slate-700 shadow-sm text-xs font-bold px-2 py-1 rounded-md flex items-center gap-1 hover:bg-slate-50 transition-colors cursor-grab active:cursor-grabbing"
-                data-id="">
-                <span></span>
+                data-id="${item.id}">
+                <span>${item.name}</span>
             </div>
-        ).join('');
+        `).join('');
 
     // Initialize Sortable if not already
     if (window.Sortable && !qaSortableActive) {
