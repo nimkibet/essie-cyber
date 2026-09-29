@@ -100,10 +100,14 @@
                             <button id="quick-pay-mpesa" class="flex-1 bg-blue-700 text-white py-2 rounded font-medium">📱 M-Pesa</button>
                             <button id="quick-pay-cash" class="flex-1 bg-gray-200 text-gray-700 py-2 rounded font-medium">💵 Cash</button>
                         </div>
-                                                <div class="flex gap-2">
-                            <input type="number" id="quick-qty" class="w-20 border border-gray-300 rounded px-2 py-2 font-bold text-center" title="Quantity" value="1" min="1">
-                            <input type="number" id="quick-amount" class="flex-1 border border-gray-300 rounded px-3 py-2 font-bold text-lg" placeholder="Total (Ksh)">
-                            <button id="quick-log-btn" class="bg-blue-600 text-white px-4 py-2 rounded font-bold">Log</button>
+                                                                        <div class="flex gap-2 h-11">
+                            <div id="quick-qty-container" class="hidden flex h-full">
+                                <button id="quick-qty-minus" class="bg-gray-200 px-3 py-1.5 rounded-l text-lg font-bold hover:bg-gray-300 transition-colors border border-gray-300 border-r-0 focus:outline-none">-</button>
+                                <input type="number" id="quick-qty" class="w-16 text-center border-y border-gray-300 py-1.5 font-bold focus:outline-none appearance-none m-0" value="1" min="1" readonly>
+                                <button id="quick-qty-plus" class="bg-gray-200 px-3 py-1.5 rounded-r text-lg font-bold hover:bg-gray-300 transition-colors border border-gray-300 border-l-0 focus:outline-none">+</button>
+                            </div>
+                            <input type="number" id="quick-amount" class="flex-1 border border-gray-300 rounded px-3 py-1.5 font-bold text-lg h-full" placeholder="Total (Ksh)">
+                            <button id="quick-log-btn" class="bg-blue-600 hover:bg-blue-700 text-white px-5 py-1.5 rounded font-bold transition-colors h-full whitespace-nowrap">Log</button>
                         </div>
                     </div>
 

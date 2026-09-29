@@ -361,10 +361,23 @@ window.setQuickServiceUI = function(name) {
     });
     
     const bindingContainer = document.getElementById('binding-options-container');
-        const amountInput = document.getElementById('quick-amount');
+    const amountInput = document.getElementById('quick-amount');
     const qtyInput = document.getElementById('quick-qty');
+    const qtyContainer = document.getElementById('quick-qty-container');
+    
     if (qtyInput) qtyInput.value = 1;
     
+    const item = inventory.find(i => i.name === name);
+    const isService = item ? (item.is_service === true || item.is_service === 1 || item.is_service === 'true') : true;
+
+    if (qtyContainer) {
+        if (isService || name === 'Binding Service') {
+            qtyContainer.classList.add('hidden');
+        } else {
+            qtyContainer.classList.remove('hidden');
+        }
+    }
+
     if (bindingContainer) {
         if (name === 'Binding Service') {
             bindingContainer.classList.remove('hidden');
@@ -384,7 +397,6 @@ window.setQuickServiceUI = function(name) {
             
             // Auto-populate price if recorded in inventory
             if (amountInput) {
-                const item = inventory.find(i => i.name === name);
                 if (item && item.selling_price > 0) {
                     amountInput.value = item.selling_price;
                 } else {
@@ -511,16 +523,36 @@ document.getElementById('btn-collect-debt').addEventListener('click', async () =
 
 
 
-document.getElementById('quick-qty').addEventListener('input', (e) => {
-    const qty = parseInt(e.target.value) || 1;
+function updateQuickAmountFromQty() {
+    const qtyInput = document.getElementById('quick-qty');
+    const amountInput = document.getElementById('quick-amount');
+    if (!qtyInput || !amountInput) return;
+    
+    const qty = parseInt(qtyInput.value) || 1;
     if (activeQuick !== 'Binding Service') {
         const item = inventory.find(i => i.name === activeQuick);
         if (item && item.selling_price > 0) {
-            document.getElementById('quick-amount').value = item.selling_price * qty;
+            amountInput.value = item.selling_price * qty;
         }
+    }
+}
+
+document.getElementById('quick-qty-plus')?.addEventListener('click', () => {
+    const input = document.getElementById('quick-qty');
+    if (input) {
+        input.value = (parseInt(input.value) || 1) + 1;
+        updateQuickAmountFromQty();
     }
 });
 
+document.getElementById('quick-qty-minus')?.addEventListener('click', () => {
+    const input = document.getElementById('quick-qty');
+    if (input) {
+        const newVal = (parseInt(input.value) || 1) - 1;
+        input.value = newVal < 1 ? 1 : newVal;
+        updateQuickAmountFromQty();
+    }
+});
 document.getElementById('quick-pay-mpesa').addEventListener('click', () => window.setQuickPayUI('M-Pesa'));
 document.getElementById('quick-pay-cash').addEventListener('click', () => window.setQuickPayUI('Cash'));
 
