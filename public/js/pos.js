@@ -130,7 +130,7 @@ async function loadData() {
             supabase.from('inventory').select('*').order('name'),
             supabase.from('customers').select('*').order('name')
         ]);
-        inventory = inv || []; 
+        inventory = inv || [];
         customers = cust || [];
         localStorage.setItem('essie_inventory_cache', JSON.stringify(inventory));
         localStorage.setItem('essie_customers_cache', JSON.stringify(customers));
@@ -141,11 +141,17 @@ async function loadData() {
     }
 
     await loadBindingSettings();
-    renderBindingOptions(); // populate binding submenu now that inventory and settings are ready
-    
-    const csel = document.getElementById('pos-customer'); csel.innerHTML = '<option value="">Walk-in</option>';
-    customers.forEach(c => csel.innerHTML += `<option value="${c.id}">${c.name}</option>`);
-    
+    renderBindingOptions();
+
+    // ── Feature 1: Populate customer dropdown (pos-customer) ──────────────
+    populateCustomerDropdown();
+
+    // ── Feature 2: Populate debt panel dropdown (customers with balance > 0) ──
+    populateDebtDropdown();
+
+    // ── Feature 3: Render dynamic Quick Add buttons ───────────────────────
+    renderQuickAddButtons();
+
     // Subscribe to real-time inventory updates
     supabase.channel('public:inventory').on('postgres_changes', { event: '*', schema: 'public', table: 'inventory' }, payload => {
         if (payload.eventType === 'INSERT') {
@@ -157,10 +163,86 @@ async function loadData() {
         } else if (payload.eventType === 'DELETE') {
             inventory = inventory.filter(i => i.id !== payload.old.id);
         }
+        renderQuickAddButtons(); // keep buttons in sync on live updates
     }).subscribe();
 
     await fetchTodaysSales();
 }
+
+// ── Feature 1 helper: (re)populate #pos-customer, keeping current selection ──
+function populateCustomerDropdown() {
+    const sel = document.getElementById('pos-customer');
+    const currentVal = sel.value;
+    sel.innerHTML = '<option value="">Walk-in</option>';
+    customers.forEach(c => {
+        const opt = document.createElement('option');
+        opt.value = c.id;
+        opt.textContent = c.outstanding_debt > 0
+            ? `${c.name} (owes Ksh ${parseFloat(c.outstanding_debt).toFixed(0)})`
+            : c.name;
+        sel.appendChild(opt);
+    });
+    // Restore prior selection if still valid
+    if (currentVal) sel.value = currentVal;
+}
+
+// ── Feature 2 helper: populate debt-customer-select with only indebted customers ──
+function populateDebtDropdown() {
+    const sel = document.getElementById('debt-customer-select');
+    if (!sel) return;
+    const prior = sel.value;
+    sel.innerHTML = '<option value="">— select customer —</option>';
+    customers
+        .filter(c => parseFloat(c.outstanding_debt || 0) > 0)
+        .forEach(c => {
+            const opt = document.createElement('option');
+            opt.value = c.id;
+            opt.textContent = `${c.name} — Ksh ${parseFloat(c.outstanding_debt).toFixed(2)}`;
+            sel.appendChild(opt);
+        });
+    if (prior) sel.value = prior;
+}
+
+// ── Feature 3 helper: build Quick Add buttons from is_quick_add flag ──────────
+function renderQuickAddButtons() {
+    const container = document.getElementById('quick-srv-container');
+    if (!container) return;
+
+    // Items flagged is_quick_add=true; fall back to three hardcoded names if column missing
+    let quickItems = inventory.filter(i => i.is_quick_add === true || i.is_quick_add === 1);
+    if (quickItems.length === 0) {
+        // Graceful fallback — same names as the old hardcoded buttons
+        const fallbackNames = ['Print / Copy', 'Typesetting', 'Binding Service'];
+        quickItems = inventory.filter(i => fallbackNames.includes(i.name));
+    }
+
+    if (quickItems.length === 0) {
+        container.innerHTML = '<span class="text-xs text-slate-400 italic col-span-3">No Quick Add items configured. Visit Settings to enable some.</span>';
+        // Reset activeQuick safely
+        activeQuick = null;
+        return;
+    }
+
+    // Default selection = first item if current activeQuick is no longer valid
+    if (!quickItems.find(i => i.name === activeQuick)) {
+        activeQuick = quickItems[0].name;
+    }
+
+    container.innerHTML = quickItems.map(item => {
+        const isActive = item.name === activeQuick;
+        const cls = isActive
+            ? 'quick-srv-btn bg-blue-600 text-white py-2 rounded text-sm font-medium'
+            : 'quick-srv-btn bg-gray-100 text-gray-700 py-2 rounded text-sm font-medium hover:bg-gray-200';
+        return `<button class="${cls}" data-name="${item.name}">${item.name}</button>`;
+    }).join('');
+
+    // Re-attach click handlers
+    container.querySelectorAll('.quick-srv-btn').forEach(b => {
+        b.addEventListener('click', e => window.setQuickServiceUI(e.target.dataset.name));
+    });
+}
+
+
 
 async function fetchTodaysSales() {
     const today = new Date().toISOString().split('T')[0];
@@ -288,11 +370,119 @@ window.setQuickServiceUI = function(name) {
     }
 };
 
-document.querySelectorAll('.quick-srv-btn').forEach(b => {
-    b.addEventListener('click', e => {
-        window.setQuickServiceUI(e.target.dataset.name);
-    });
+// ── Feature 1: Add New Customer modal wiring ──────────────────────────────────
+function openAddCustomerModal() {
+    document.getElementById('new-cust-name').value = '';
+    document.getElementById('new-cust-phone').value = '';
+    document.getElementById('new-cust-error').classList.add('hidden');
+    document.getElementById('modal-add-customer').classList.remove('hidden');
+    setTimeout(() => document.getElementById('new-cust-name').focus(), 100);
+}
+
+document.getElementById('btn-add-cust-inline').addEventListener('click', openAddCustomerModal);
+
+document.getElementById('btn-cancel-new-cust').addEventListener('click', () => {
+    document.getElementById('modal-add-customer').classList.add('hidden');
 });
+
+document.getElementById('btn-save-new-cust').addEventListener('click', async () => {
+    const name = document.getElementById('new-cust-name').value.trim();
+    const phone = document.getElementById('new-cust-phone').value.trim();
+    const errEl = document.getElementById('new-cust-error');
+
+    if (!name) {
+        errEl.textContent = 'Name is required.';
+        errEl.classList.remove('hidden');
+        return;
+    }
+
+    const btn = document.getElementById('btn-save-new-cust');
+    btn.disabled = true; btn.textContent = 'Saving...';
+
+    try {
+        const { data, error } = await supabase
+            .from('customers')
+            .insert([{ name, phone, outstanding_debt: 0 }])
+            .select()
+            .single();
+        if (error) throw error;
+
+        // Update local cache and refresh dropdowns
+        customers.push(data);
+        customers.sort((a, b) => a.name.localeCompare(b.name));
+        localStorage.setItem('essie_customers_cache', JSON.stringify(customers));
+        populateCustomerDropdown();
+        populateDebtDropdown();
+
+        // Auto-select the newly created customer in pos-customer
+        document.getElementById('pos-customer').value = data.id;
+
+        document.getElementById('modal-add-customer').classList.add('hidden');
+    } catch (err) {
+        errEl.textContent = 'Error: ' + err.message;
+        errEl.classList.remove('hidden');
+    } finally {
+        btn.disabled = false; btn.textContent = 'Save Customer';
+    }
+});
+
+// ── Feature 2: Debt Collection wiring ────────────────────────────────────────
+document.getElementById('debt-customer-select').addEventListener('change', function() {
+    const cust = customers.find(c => c.id == this.value);
+    const balEl = document.getElementById('debt-current-balance');
+    balEl.value = cust ? `Ksh ${parseFloat(cust.outstanding_debt || 0).toFixed(2)}` : '';
+    document.getElementById('debt-status-msg').classList.add('hidden');
+    document.getElementById('debt-amount-input').value = '';
+});
+
+document.getElementById('btn-collect-debt').addEventListener('click', async () => {
+    const custId = document.getElementById('debt-customer-select').value;
+    const amount = parseFloat(document.getElementById('debt-amount-input').value);
+    const statusEl = document.getElementById('debt-status-msg');
+
+    if (!custId) return alert('Please select a customer.');
+    if (!amount || amount <= 0) return alert('Enter a valid amount.');
+
+    const cust = customers.find(c => c.id == custId);
+    if (!cust) return;
+
+    const currentDebt = parseFloat(cust.outstanding_debt || 0);
+    if (amount > currentDebt) {
+        return alert(`Amount exceeds balance. Max payable: Ksh ${currentDebt.toFixed(2)}`);
+    }
+
+    const newDebt = Math.max(0, currentDebt - amount);
+    const btn = document.getElementById('btn-collect-debt');
+    btn.disabled = true; btn.textContent = 'Processing...';
+
+    try {
+        const { error } = await supabase
+            .from('customers')
+            .update({ outstanding_debt: newDebt })
+            .eq('id', custId);
+        if (error) throw error;
+
+        // Update local cache
+        cust.outstanding_debt = newDebt;
+        localStorage.setItem('essie_customers_cache', JSON.stringify(customers));
+        populateCustomerDropdown();
+        populateDebtDropdown();
+
+        document.getElementById('debt-amount-input').value = '';
+        document.getElementById('debt-current-balance').value = `Ksh ${newDebt.toFixed(2)}`;
+        document.getElementById('debt-customer-select').value = '';
+        document.getElementById('debt-current-balance').value = '';
+
+        statusEl.textContent = `✅ Collected Ksh ${amount.toFixed(2)} from ${cust.name}. Remaining balance: Ksh ${newDebt.toFixed(2)}`;
+        statusEl.classList.remove('hidden');
+        setTimeout(() => statusEl.classList.add('hidden'), 5000);
+    } catch (err) {
+        alert('Error collecting debt: ' + err.message);
+    } finally {
+        btn.disabled = false; btn.textContent = 'Collect Payment';
+    }
+});
+
 
 
 document.getElementById('quick-pay-mpesa').addEventListener('click', () => window.setQuickPayUI('M-Pesa'));

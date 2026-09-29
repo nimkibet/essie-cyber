@@ -85,6 +85,7 @@ function initializeDatabase() {
         db.run(`ALTER TABLE inventory ADD COLUMN min_threshold INTEGER DEFAULT 5`, (err) => {});
         db.run(`ALTER TABLE inventory ADD COLUMN barcode TEXT`, (err) => {});
         db.run(`ALTER TABLE inventory ADD COLUMN category TEXT DEFAULT 'Uncategorized'`, (err) => {});
+        db.run(`ALTER TABLE inventory ADD COLUMN is_quick_add BOOLEAN DEFAULT false`, (err) => {});
 
         db.run(`ALTER TABLE sales_log ADD COLUMN cashier_id INTEGER`, (err) => {});
         db.run(`ALTER TABLE sales_log ADD COLUMN customer_id INTEGER`, (err) => {});

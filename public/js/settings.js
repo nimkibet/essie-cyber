@@ -28,6 +28,7 @@ async function init() {
     renderAll();
     renderLinkedResources();
     renderLinkedSelect();
+    renderQuickAddSettings(); // Feature 3: Quick Add button management
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -258,4 +259,65 @@ window.saveLinkedResources = async function() {
     alert('Linked resources saved!');
 };
 
+// ─────────────────────────────────────────────────────────────────────────────
+// FEATURE 3: Quick Add Buttons Management
+// ─────────────────────────────────────────────────────────────────────────────
+
+function renderQuickAddSettings(filter = '') {
+    const list = document.getElementById('qa-list');
+    if (!list) return;
+
+    const term = filter.toLowerCase();
+    const filtered = allInventory.filter(i =>
+        !term || i.name.toLowerCase().includes(term)
+    );
+
+    if (filtered.length === 0) {
+        list.innerHTML = '<div class="text-xs text-slate-400 italic p-2">No items found.</div>';
+        return;
+    }
+
+    list.innerHTML = filtered.map(item => {
+        const isOn = item.is_quick_add === true || item.is_quick_add === 1;
+        return `
+        <div class="flex items-center justify-between px-3 py-2 rounded-lg border border-slate-100 hover:bg-slate-50 transition-colors">
+            <span class="text-sm font-medium text-slate-700">${item.name}</span>
+            <label class="relative inline-flex items-center cursor-pointer">
+                <input type="checkbox" class="sr-only peer qa-toggle" data-id="${item.id}" data-name="${item.name}" ${isOn ? 'checked' : ''}>
+                <div class="w-10 h-5 bg-slate-200 peer-checked:bg-blue-600 rounded-full peer peer-focus:ring-2 peer-focus:ring-blue-300 transition-colors after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-5"></div>
+            </label>
+        </div>`;
+    }).join('');
+
+    // Wire toggle handlers
+    list.querySelectorAll('.qa-toggle').forEach(chk => {
+        chk.addEventListener('change', async function() {
+            const itemId = this.dataset.id;
+            const enabled = this.checked;
+            this.disabled = true;
+            try {
+                const { error } = await supabase
+                    .from('inventory')
+                    .update({ is_quick_add: enabled })
+                    .eq('id', itemId);
+                if (error) throw error;
+                // Update local allInventory cache
+                const item = allInventory.find(i => i.id == itemId);
+                if (item) item.is_quick_add = enabled;
+            } catch (err) {
+                alert('Failed to update: ' + err.message);
+                this.checked = !enabled; // revert
+            } finally {
+                this.disabled = false;
+            }
+        });
+    });
+}
+
+// Wire search box
+document.getElementById('qa-search')?.addEventListener('input', function() {
+    renderQuickAddSettings(this.value);
+});
+
 init();
+
