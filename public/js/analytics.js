@@ -120,7 +120,7 @@ async function load() {
     }
 
     document.getElementById('kpi-tx').innerText = currentSalesData.length;
-    let rev = 0, grossProf = 0;
+    let rev = 0, grossProf = 0, debtIssued = 0, debtCollected = 0;
     
     const items = {};
     const userRevenue = {};
@@ -128,10 +128,15 @@ async function load() {
 
     currentSalesData.forEach(x => {
         if (x.status === 'debt_collection') {
+            debtCollected += x.total_charged;
             // Only add to Cash or M-Pesa totals
             if (x.payment_method === 'cash') methodRevenue.cash += x.total_charged;
             else if (x.payment_method === 'mpesa') methodRevenue.mpesa += x.total_charged;
             return; // Skip revenue, profit, items, users
+        }
+
+        if (x.status === 'debt') {
+            debtIssued += x.total_charged;
         }
 
         rev += x.total_charged;
@@ -156,6 +161,9 @@ async function load() {
     document.getElementById('kpi-rev').innerText = `Ksh ${rev.toLocaleString(undefined, {maximumFractionDigits:0})}`;
     document.getElementById('kpi-exp').innerText = `Ksh ${currentTotalExpenses.toLocaleString(undefined, {maximumFractionDigits:0})}`;
     document.getElementById('kpi-profit').innerText = `Ksh ${netProfit.toLocaleString(undefined, {maximumFractionDigits:0})}`;
+    
+    if (document.getElementById('kpi-debt-issued')) document.getElementById('kpi-debt-issued').innerText = `Ksh ${debtIssued.toLocaleString(undefined, {maximumFractionDigits:0})}`;
+    if (document.getElementById('kpi-debt-collected')) document.getElementById('kpi-debt-collected').innerText = `Ksh ${debtCollected.toLocaleString(undefined, {maximumFractionDigits:0})}`;
 
     // Net Profit Math UI Breakdown
     let uiWages = 0, uiOtherExp = 0, uiResources = 0, uiFixed = 0;
