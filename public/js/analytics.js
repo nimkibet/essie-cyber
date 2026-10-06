@@ -19,23 +19,44 @@ let itemsChartInstance = null;
 async function load() {
     periodStr = document.getElementById('ana-period').value;
     const dateInput = document.getElementById('ana-date');
+    const dateInputEnd = document.getElementById('ana-date-end');
+    const dateSeparator = document.getElementById('ana-date-separator');
     
-    if (periodStr === 'custom') {
+    if (periodStr === 'custom' || periodStr === 'custom-range') {
         dateInput.classList.remove('hidden');
         if (!dateInput.value) {
             dateInput.value = new Date().toISOString().split('T')[0];
         }
+        if (periodStr === 'custom-range') {
+            dateInputEnd.classList.remove('hidden');
+            dateSeparator.classList.remove('hidden');
+            if (!dateInputEnd.value) {
+                dateInputEnd.value = new Date().toISOString().split('T')[0];
+            }
+        } else {
+            dateInputEnd.classList.add('hidden');
+            dateSeparator.classList.add('hidden');
+        }
     } else {
         dateInput.classList.add('hidden');
+        if(dateInputEnd) dateInputEnd.classList.add('hidden');
+        if(dateSeparator) dateSeparator.classList.add('hidden');
     }
 
-    const d = periodStr === 'custom' && dateInput.value ? new Date(dateInput.value) : new Date();
+    const d = (periodStr === 'custom' || periodStr === 'custom-range') && dateInput.value ? new Date(dateInput.value) : new Date();
     const ym = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
     let dateFilter = periodStr === 'month' ? ym : d.toISOString().split('T')[0];
     
-    let nextDate = new Date(d);
-    nextDate.setDate(nextDate.getDate() + 1);
-    let nextDateStr = nextDate.toISOString().split('T')[0];
+    let nextDateStr;
+    if (periodStr === 'custom-range' && dateInputEnd && dateInputEnd.value) {
+        let endDate = new Date(dateInputEnd.value);
+        endDate.setDate(endDate.getDate() + 1);
+        nextDateStr = endDate.toISOString().split('T')[0];
+    } else {
+        let nextDate = new Date(d);
+        nextDate.setDate(nextDate.getDate() + 1);
+        nextDateStr = nextDate.toISOString().split('T')[0];
+    }
 
     // 1. Fetch Sales
     let q = supabase.from('sales_log').select('*, inventory(name), users!sales_log_cashier_id_fkey(username)').eq('is_voided', false);
@@ -63,6 +84,7 @@ async function load() {
     // 5. Fetch Attendance Wages
     let attQ = supabase.from('attendance_log').select('wage_assigned, users(username)');
     if (periodStr === 'month') attQ = attQ.like('work_date', `${ym}%`);
+    else if (periodStr === 'custom-range') attQ = attQ.gte('work_date', dateFilter).lt('work_date', nextDateStr);
     else attQ = attQ.eq('work_date', dateFilter);
 
     const [ {data: s}, {data: resData}, {data: ovData}, {data: expData}, {data: attData}, {data: lowStockData} ] = await Promise.all([
@@ -282,6 +304,7 @@ function renderLowStock() {
 
 document.getElementById('ana-period').addEventListener('change', load);
 document.getElementById('ana-date').addEventListener('change', load);
+document.getElementById('ana-date-end').addEventListener('change', load);
 document.getElementById('chk-include-bulk').addEventListener('change', load);
 
 document.getElementById('btn-dl-report').addEventListener('click', () => {
@@ -299,7 +322,7 @@ document.getElementById('btn-dl-report').addEventListener('click', () => {
     
     doc.setFontSize(12);
     doc.setFont("helvetica", "normal");
-    const reportTitle = periodStr === 'today' ? "Daily Sales Report" : "Monthly Sales Report";
+    const reportTitle = periodStr === 'today' ? "Daily Sales Report" : (periodStr === 'custom-range' ? "Custom Range Sales Report" : "Monthly Sales Report");
     doc.text(`${reportTitle} - ${new Date().toLocaleDateString()}`, 130, 20);
     
     let rev = 0, grossProf = 0;
