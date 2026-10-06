@@ -794,6 +794,15 @@ function resetModes() {
     document.getElementById('main-pay-cash').classList.remove('hidden');
     const mainPayDebt = document.getElementById('main-pay-debt');
     if(mainPayDebt) mainPayDebt.classList.add('hidden');
+    
+    const btnDebtCart = document.getElementById('btn-debt-cart');
+    if(btnDebtCart) btnDebtCart.classList.add('hidden');
+    const btnDlQuote = document.getElementById('btn-dl-quote');
+    const btnRecMpesa = document.getElementById('btn-receipt-mpesa');
+    const btnRecCash = document.getElementById('btn-receipt-cash');
+    if(btnDlQuote) btnDlQuote.classList.remove('hidden');
+    if(btnRecMpesa) btnRecMpesa.classList.remove('hidden');
+    if(btnRecCash) btnRecCash.classList.remove('hidden');
 }
 
 document.getElementById('mode-direct').addEventListener('click', () => {
@@ -816,11 +825,30 @@ if(modeDebtBtn) {
         resetModes();
         isDebtMode = true;
         modeDebtBtn.className = "px-3 py-1 text-sm font-bold bg-white shadow-sm rounded-md text-blue-600 transition-all";
-        document.getElementById('debt-customer-container').classList.remove('hidden');
+        
+        // Show the cart for debt mode
+        document.getElementById('doc-actions').classList.remove('hidden');
+        document.getElementById('direct-actions').classList.remove('hidden');
+        
         document.getElementById('main-pay-mpesa').classList.add('hidden');
         document.getElementById('main-pay-cash').classList.add('hidden');
         const mainPayDebt = document.getElementById('main-pay-debt');
         if(mainPayDebt) mainPayDebt.classList.remove('hidden');
+        
+        // Also show the Cart panel
+        document.getElementById('doc-cart-panel').classList.remove('hidden');
+        document.getElementById('debt-customer-container').classList.remove('hidden');
+        
+        // Inside the cart, hide the standard receipt buttons and show "Process Debt"
+        const btnDlQuote = document.getElementById('btn-dl-quote');
+        const btnRecMpesa = document.getElementById('btn-receipt-mpesa');
+        const btnRecCash = document.getElementById('btn-receipt-cash');
+        if(btnDlQuote) btnDlQuote.classList.add('hidden');
+        if(btnRecMpesa) btnRecMpesa.classList.add('hidden');
+        if(btnRecCash) btnRecCash.classList.add('hidden');
+        
+        const btnDebtCart = document.getElementById('btn-debt-cart');
+        if(btnDebtCart) btnDebtCart.classList.remove('hidden');
     });
 }
 
