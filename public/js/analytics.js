@@ -358,16 +358,21 @@ document.getElementById('btn-dl-report').addEventListener('click', () => {
     doc.setFont("helvetica", "normal");
     doc.text(dateSubtitle, 196, 20, { align: "right" });
     
-    let rev = 0, grossProf = 0;
+    let rev = 0, grossProf = 0, pdfDebtIssued = 0, pdfDebtCollected = 0;
     const userTotals = {};
     const methodTotals = { cash: 0, mpesa: 0 };
     const itemAgg = {};
 
     currentSalesData.forEach(x => { 
         if (x.status === 'debt_collection') {
+            pdfDebtCollected += x.total_charged;
             if (x.payment_method === 'cash') methodTotals.cash += x.total_charged;
             else if (x.payment_method === 'mpesa') methodTotals.mpesa += x.total_charged;
             return;
+        }
+
+        if (x.status === 'debt') {
+            pdfDebtIssued += x.total_charged;
         }
 
         rev += x.total_charged; 
@@ -440,6 +445,8 @@ document.getElementById('btn-dl-report').addEventListener('click', () => {
     // Left column
     doc.text(`Gross Revenue: Ksh ${rev.toLocaleString()}`, 14, 55);
     doc.text(`Gross Profit: Ksh ${grossProf.toLocaleString()}`, 14, 62);
+    doc.text(`Debt Issued: Ksh ${pdfDebtIssued.toLocaleString()}`, 14, 69);
+    doc.text(`Debt Collected: Ksh ${pdfDebtCollected.toLocaleString()}`, 14, 76);
     
     // Middle column
     const userSummary = Object.entries(userTotals).map(u => `${u[0]}: Ksh ${u[1].toLocaleString()}`).join('  |  ');
