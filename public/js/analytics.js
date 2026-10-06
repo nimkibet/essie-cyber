@@ -320,10 +320,26 @@ document.getElementById('btn-dl-report').addEventListener('click', () => {
     doc.setFont("helvetica", "bold");
     doc.text("Essie Cyber POS", 14, 20);
     
+    const dateInput = document.getElementById('ana-date');
+    const dateInputEnd = document.getElementById('ana-date-end');
+    let dateSubtitle = "";
+    if (periodStr === 'today') {
+        dateSubtitle = `Info for ${new Date().toISOString().split('T')[0]}`;
+    } else if (periodStr === 'custom') {
+        dateSubtitle = `Info for ${dateInput.value || new Date().toISOString().split('T')[0]}`;
+    } else if (periodStr === 'month') {
+        const d2 = new Date();
+        const startOfMonth = `${d2.getFullYear()}-${String(d2.getMonth() + 1).padStart(2, '0')}-01`;
+        dateSubtitle = `Info from ${startOfMonth} to ${d2.toISOString().split('T')[0]}`;
+    } else if (periodStr === 'custom-range') {
+        const d1 = dateInput.value || new Date().toISOString().split('T')[0];
+        const d2 = dateInputEnd.value || new Date().toISOString().split('T')[0];
+        dateSubtitle = `Info from ${d1} to ${d2}`;
+    }
+    
     doc.setFontSize(12);
     doc.setFont("helvetica", "normal");
-    const reportTitle = periodStr === 'today' ? "Daily Sales Report" : (periodStr === 'custom-range' ? "Custom Range Sales Report" : "Monthly Sales Report");
-    doc.text(`${reportTitle} - ${new Date().toLocaleDateString()}`, 130, 20);
+    doc.text(dateSubtitle, 196, 20, { align: "right" });
     
     let rev = 0, grossProf = 0;
     const userTotals = {};
