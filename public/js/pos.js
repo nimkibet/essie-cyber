@@ -150,6 +150,7 @@ async function loadData() {
 
     // ── Feature 2: Populate debt panel dropdown (customers with balance > 0) ──
     populateDebtDropdown();
+    populateDebtSaleDropdown();
 
     // ── Feature 3: Render dynamic Quick Add buttons ───────────────────────
     renderQuickAddButtons();
@@ -451,6 +452,7 @@ document.getElementById('btn-save-new-cust').addEventListener('click', async () 
         localStorage.setItem('essie_customers_cache', JSON.stringify(customers));
         populateCustomerDropdown();
         populateDebtDropdown();
+    populateDebtSaleDropdown();
 
         // Auto-select the newly created customer in pos-customer
         document.getElementById('pos-customer').value = data.id;
@@ -493,18 +495,38 @@ document.getElementById('btn-collect-debt').addEventListener('click', async () =
     const btn = document.getElementById('btn-collect-debt');
     btn.disabled = true; btn.textContent = 'Processing...';
 
+    const method = document.getElementById('debt-method-select').value;
+
     try {
-        const { error } = await supabase
+        // Ensure we have an item to link to (foreign key constraint)
+        if (!inventory || inventory.length === 0) {
+            throw new Error("No items in inventory to link debt collection.");
+        }
+        const dummyItemId = inventory[0].id;
+
+        const { error: dbError } = await supabase
             .from('customers')
             .update({ outstanding_debt: newDebt })
             .eq('id', custId);
-        if (error) throw error;
+        if (dbError) throw dbError;
+
+        // Insert into sales_log for daily tracking
+        const { error: logError } = await supabase.from('sales_log').insert([{
+            item_id: dummyItemId,
+            quantity: 1, // dummy quantity
+            total_charged: amount,
+            calculated_profit: 0,
+            payment_method: method,
+            status: 'debt_collection'
+        }]);
+        if (logError) throw logError;
 
         // Update local cache
         cust.outstanding_debt = newDebt;
         localStorage.setItem('essie_customers_cache', JSON.stringify(customers));
         populateCustomerDropdown();
         populateDebtDropdown();
+    populateDebtSaleDropdown();
 
         document.getElementById('debt-amount-input').value = '';
         document.getElementById('debt-current-balance').value = `Ksh ${newDebt.toFixed(2)}`;
@@ -754,23 +776,53 @@ document.getElementById('pos-qty').addEventListener('input', () => {
 let isDocMode = false;
 let docCart = [];
 
-document.getElementById('mode-direct').addEventListener('click', () => {
+let isDebtMode = false;
+function resetModes() {
     isDocMode = false;
-    document.getElementById('mode-direct').className = "px-3 py-1 text-sm font-bold bg-white shadow-sm rounded-md text-blue-600 transition-all";
+    isDebtMode = false;
+    document.getElementById('mode-direct').className = "px-3 py-1 text-sm font-bold text-gray-500 hover:text-gray-700 rounded-md transition-all";
     document.getElementById('mode-doc').className = "px-3 py-1 text-sm font-bold text-gray-500 hover:text-gray-700 rounded-md transition-all";
-    document.getElementById('direct-actions').classList.remove('hidden');
+    const modeDebt = document.getElementById('mode-debt');
+    if(modeDebt) modeDebt.className = "px-3 py-1 text-sm font-bold text-gray-500 hover:text-gray-700 rounded-md transition-all";
+    
     document.getElementById('doc-actions').classList.add('hidden');
+    document.getElementById('direct-actions').classList.remove('hidden');
     document.getElementById('doc-cart-panel').classList.add('hidden');
+    
+    document.getElementById('debt-customer-container').classList.add('hidden');
+    document.getElementById('main-pay-mpesa').classList.remove('hidden');
+    document.getElementById('main-pay-cash').classList.remove('hidden');
+    const mainPayDebt = document.getElementById('main-pay-debt');
+    if(mainPayDebt) mainPayDebt.classList.add('hidden');
+}
+
+document.getElementById('mode-direct').addEventListener('click', () => {
+    resetModes();
+    document.getElementById('mode-direct').className = "px-3 py-1 text-sm font-bold bg-white shadow-sm rounded-md text-blue-600 transition-all";
 });
 
 document.getElementById('mode-doc').addEventListener('click', () => {
+    resetModes();
     isDocMode = true;
     document.getElementById('mode-doc').className = "px-3 py-1 text-sm font-bold bg-white shadow-sm rounded-md text-blue-600 transition-all";
-    document.getElementById('mode-direct').className = "px-3 py-1 text-sm font-bold text-gray-500 hover:text-gray-700 rounded-md transition-all";
     document.getElementById('doc-actions').classList.remove('hidden');
     document.getElementById('direct-actions').classList.add('hidden');
     document.getElementById('doc-cart-panel').classList.remove('hidden');
 });
+
+const modeDebtBtn = document.getElementById('mode-debt');
+if(modeDebtBtn) {
+    modeDebtBtn.addEventListener('click', () => {
+        resetModes();
+        isDebtMode = true;
+        modeDebtBtn.className = "px-3 py-1 text-sm font-bold bg-white shadow-sm rounded-md text-blue-600 transition-all";
+        document.getElementById('debt-customer-container').classList.remove('hidden');
+        document.getElementById('main-pay-mpesa').classList.add('hidden');
+        document.getElementById('main-pay-cash').classList.add('hidden');
+        const mainPayDebt = document.getElementById('main-pay-debt');
+        if(mainPayDebt) mainPayDebt.classList.remove('hidden');
+    });
+}
 
 function renderDocCart() {
     const tbody = document.getElementById('doc-cart-tbody');
@@ -1306,3 +1358,100 @@ window.addEventListener('online', async () => {
     }
 });
 resetFocusTimer(); // Init
+
+function populateDebtSaleDropdown() {
+    const sel = document.getElementById('debt-sale-customer-select');
+    if (!sel) return;
+    const prior = sel.value;
+    sel.innerHTML = '<option value="">-- Choose Customer --</option>';
+    customers.forEach(c => {
+        const opt = document.createElement('option');
+        opt.value = c.id;
+        opt.textContent = c.name;
+        sel.appendChild(opt);
+    });
+    if (prior) sel.value = prior;
+}
+
+const mainPayDebt = document.getElementById('main-pay-debt');
+if (mainPayDebt) {
+    mainPayDebt.addEventListener('click', async () => {
+        if (!navigator.onLine) {
+            alert('Debt Sales require an active internet connection.');
+            return;
+        }
+        
+        const custId = document.getElementById('debt-sale-customer-select').value;
+        if (!custId) {
+            alert('Please select a customer for the debt sale.');
+            return;
+        }
+
+        if (cart.length === 0) {
+            alert('Cart is empty.');
+            return;
+        }
+
+        const totalAmount = cart.reduce((sum, item) => sum + item.total, 0);
+        const cust = customers.find(c => c.id == custId);
+        if (!cust) return;
+
+        if (!confirm(Log Ksh  + totalAmount +  as Debt for  + cust.name + ?)) return;
+
+        mainPayDebt.disabled = true;
+        mainPayDebt.textContent = 'Processing...';
+
+        try {
+            const inserts = cart.map(item => ({
+                item_id: item.id,
+                total_charged: item.total,
+                calculated_qty: item.qty,
+                calculated_profit: item.total - (item.buying_price * item.qty),
+                cashier_id: currentUser.id,
+                payment_method: 'cash',
+                status: 'debt',
+                customer_id: custId,
+                kyocera_pages: item.kyocera_pages
+            }));
+
+            const { error: insertErr } = await supabase.from('sales_log').insert(inserts);
+            if (insertErr) throw insertErr;
+
+            // Update customer debt
+            const newDebt = parseFloat(cust.outstanding_debt || 0) + totalAmount;
+            const { error: custErr } = await supabase.from('customers').update({ outstanding_debt: newDebt }).eq('id', custId);
+            if (custErr) throw custErr;
+            
+            cust.outstanding_debt = newDebt;
+            localStorage.setItem('essie_customers_cache', JSON.stringify(customers));
+            populateCustomerDropdown();
+            populateDebtDropdown();
+            populateDebtSaleDropdown();
+
+            // Deduct inventory
+            for (let item of cart) {
+                if (item.type === 'variable' && item.is_service && !item.is_kyocera) {
+                    if (item.name.toLowerCase().includes('binding')) await deductBindingMaterials(item.qty);
+                    continue;
+                }
+                const logItem = inventory.find(i => i.id === item.id);
+                if (logItem && logItem.type === 'fixed') {
+                    const newStock = (logItem.stock_quantity || 0) - item.qty;
+                    try { await supabase.from('inventory').update({ stock_quantity: newStock }).eq('id', item.id); } catch (e) {}
+                    logItem.stock_quantity = newStock;
+                }
+            }
+
+            cart = [];
+            renderCart();
+            fetchTodaysSales();
+            resetModes();
+            document.getElementById('debt-sale-customer-select').value = '';
+        } catch (err) {
+            alert('Error processing debt sale: ' + err.message);
+        } finally {
+            mainPayDebt.disabled = false;
+            mainPayDebt.textContent = 'Debt';
+        }
+    });
+}

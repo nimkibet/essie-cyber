@@ -127,6 +127,13 @@ async function load() {
     const methodRevenue = { cash: 0, mpesa: 0 };
 
     currentSalesData.forEach(x => {
+        if (x.status === 'debt_collection') {
+            // Only add to Cash or M-Pesa totals
+            if (x.payment_method === 'cash') methodRevenue.cash += x.total_charged;
+            else if (x.payment_method === 'mpesa') methodRevenue.mpesa += x.total_charged;
+            return; // Skip revenue, profit, items, users
+        }
+
         rev += x.total_charged;
         grossProf += x.calculated_profit;
         
@@ -138,8 +145,10 @@ async function load() {
         if (!userRevenue[user]) userRevenue[user] = 0;
         userRevenue[user] += x.total_charged;
         
-        if (x.payment_method === 'cash') methodRevenue.cash += x.total_charged;
-        else if (x.payment_method === 'mpesa') methodRevenue.mpesa += x.total_charged;
+        if (x.status !== 'debt') {
+            if (x.payment_method === 'cash') methodRevenue.cash += x.total_charged;
+            else if (x.payment_method === 'mpesa') methodRevenue.mpesa += x.total_charged;
+        }
     });
 
     const netProfit = grossProf - currentTotalExpenses;
@@ -347,14 +356,22 @@ document.getElementById('btn-dl-report').addEventListener('click', () => {
     const itemAgg = {};
 
     currentSalesData.forEach(x => { 
+        if (x.status === 'debt_collection') {
+            if (x.payment_method === 'cash') methodTotals.cash += x.total_charged;
+            else if (x.payment_method === 'mpesa') methodTotals.mpesa += x.total_charged;
+            return;
+        }
+
         rev += x.total_charged; 
         grossProf += x.calculated_profit;
         
         const username = x.users?.username || 'System';
         userTotals[username] = (userTotals[username] || 0) + x.total_charged;
         
-        if (x.payment_method === 'cash') methodTotals.cash += x.total_charged;
-        else if (x.payment_method === 'mpesa') methodTotals.mpesa += x.total_charged;
+        if (x.status !== 'debt') {
+            if (x.payment_method === 'cash') methodTotals.cash += x.total_charged;
+            else if (x.payment_method === 'mpesa') methodTotals.mpesa += x.total_charged;
+        }
         
         const itemName = x.inventory?.name || 'Unknown';
         if (!itemAgg[itemName]) itemAgg[itemName] = { qty: 0, revenue: 0, method: new Set(), users: new Set() };
