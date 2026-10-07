@@ -387,18 +387,6 @@ async function recordSale(itemId, total, qty, buyingCost, method, customerId, ky
         console.error(error);
         alert("Failed to log sale");
     } else {
-        // --- ADDED INVENTORY DEDUCTION ---
-        try {
-            if (itemId && typeof itemId === 'string' && !itemId.startsWith('temp-')) {
-                const { data: item } = await supabase.from('inventory').select('stock_quantity, is_service, type').eq('id', itemId).single();
-                if (item && !item.is_service && item.type === 'fixed' && typeof item.stock_quantity === 'number') {
-                    const newStock = item.stock_quantity - qty;
-                    await supabase.from('inventory').update({ stock_quantity: newStock }).eq('id', itemId);
-                }
-            }
-        } catch(e) { console.error("Inventory deduction error", e); }
-        // ---------------------------------
-
         // Refresh ledger
         await fetchTodaysSales();
         renderLedger();

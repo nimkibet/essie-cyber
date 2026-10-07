@@ -1,0 +1,3 @@
+﻿{
+    "query":  "DROP TRIGGER IF EXISTS trg_sync_inventory_stock ON public.sales_log;\nCREATE TRIGGER trg_sync_inventory_stock\nAFTER INSERT OR UPDATE OR DELETE ON public.sales_log\nFOR EACH ROW\nEXECUTE FUNCTION public.sync_inventory_stock();"
+}
