@@ -1052,6 +1052,21 @@ window.togglePayment = async (id, currentMethod) => {
 window.voidSale = async (id) => {
     if (!confirm('Are you sure you want to void this entry?')) return;
     try {
+        // Fetch sale details before voiding
+        const { data: sale, error: fetchErr } = await supabase.from('sales_log').select('item_id, calculated_qty, is_voided').eq('id', id).single();
+        if (fetchErr) throw fetchErr;
+        
+        if (!sale.is_voided) {
+            // Restore inventory
+            if (sale.item_id && typeof sale.item_id === 'string' && !sale.item_id.startsWith('temp-')) {
+                const { data: item } = await supabase.from('inventory').select('stock_quantity, is_service, type').eq('id', sale.item_id).single();
+                if (item && !item.is_service && item.type === 'fixed' && typeof item.stock_quantity === 'number') {
+                    const newStock = item.stock_quantity + (sale.calculated_qty || 1);
+                    await supabase.from('inventory').update({ stock_quantity: newStock }).eq('id', sale.item_id);
+                }
+            }
+        }
+
         const { error } = await supabase.from('sales_log').update({
             is_voided: true,
             voided_by: currentUser.id
