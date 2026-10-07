@@ -1,4 +1,4 @@
-﻿import { supabase, currentUser, requireAuth } from './supabaseClient.js';
+import { supabase, currentUser, requireAuth } from './supabaseClient.js';
 import { insertSaleWithOfflineSupport, syncOfflineSales, insertExpenseWithOfflineSupport, syncOfflineExpenses } from './offlineQueue.js';
 requireAuth();
 let inventory = [], customers = [], todaysSales = [];
@@ -70,7 +70,7 @@ function renderBindingOptions() {
     let html = bindingGroups.map(g => `<button onclick="window.setBindingGroup('${g.id}')" class="px-3 py-1.5 rounded text-xs font-bold transition-all ${activeBindingGroup && activeBindingGroup.id === g.id ? 'bg-slate-700 text-white shadow' : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'}">${g.name}</button>`).join('');
 
     if (showTapeButton) {
-        html += `<button onclick="window.setBindingGroup('__tape__')" class="px-3 py-1.5 rounded text-xs font-bold ${activeBindingGroup && activeBindingGroup.id === '__tape__' ? 'bg-slate-600 text-white shadow' : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'}">ðŸ·ï¸ Tape</button>`;
+        html += `<button onclick="window.setBindingGroup('__tape__')" class="px-3 py-1.5 rounded text-xs font-bold ${activeBindingGroup && activeBindingGroup.id === '__tape__' ? 'bg-slate-600 text-white shadow' : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'}">🏷️ Tape</button>`;
     }
 
     if (activeBindingGroup && activeBindingGroup.id !== '__tape__' && activeBindingGroup.items && activeBindingGroup.items.length > 0) {
@@ -95,7 +95,7 @@ window.setBindingGroup = function(id) {
         activeBindingGroup = bindingGroups.find(g => g.id === id) || null;
         activeBindingItem = activeBindingGroup && activeBindingGroup.items[0]
             ? inventory.find(i => i.id === activeBindingGroup.items[0].id) : null;
-        // Auto-fill amount from group name price (e.g. "KSH 50" â†’ 50)
+        // Auto-fill amount from group name price (e.g. "KSH 50" → 50)
         if (activeBindingGroup) {
             const price = parseFloat((activeBindingGroup.name || '').replace(/[^0-9.]/g, ''));
             if (price) document.getElementById('quick-amount').value = price;
@@ -118,7 +118,7 @@ async function deductBindingMaterials(qty) {
         if (item) {
             const newStock = (item.stock_quantity || 0) - qty;
             try {
-                
+                // if (navigator.onLine) await supabase.from('inventory').update({ stock_quantity: newStock }).eq('id', item.id); /* Handled by Postgres Trigger */
             } catch(e) {}
             item.stock_quantity = newStock;
         }
@@ -145,14 +145,14 @@ async function loadData() {
     await loadBindingSettings();
     renderBindingOptions();
 
-    // â”€â”€ Feature 1: Populate customer dropdown (pos-customer) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── Feature 1: Populate customer dropdown (pos-customer) ──────────────
     populateCustomerDropdown();
 
-    // â”€â”€ Feature 2: Populate debt panel dropdown (customers with balance > 0) â”€â”€
+    // ── Feature 2: Populate debt panel dropdown (customers with balance > 0) ──
     populateDebtDropdown();
     populateDebtSaleDropdown();
 
-    // â”€â”€ Feature 3: Render dynamic Quick Add buttons â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── Feature 3: Render dynamic Quick Add buttons ───────────────────────
     renderQuickAddButtons();
 
     // Subscribe to real-time inventory updates
@@ -172,7 +172,7 @@ async function loadData() {
     await fetchTodaysSales();
 }
 
-// â”€â”€ Feature 1 helper: (re)populate #pos-customer, keeping current selection â”€â”€
+// ── Feature 1 helper: (re)populate #pos-customer, keeping current selection ──
 function populateCustomerDropdown() {
     const sel = document.getElementById('pos-customer');
     const currentVal = sel.value;
@@ -189,24 +189,24 @@ function populateCustomerDropdown() {
     if (currentVal) sel.value = currentVal;
 }
 
-// â”€â”€ Feature 2 helper: populate debt-customer-select with only indebted customers â”€â”€
+// ── Feature 2 helper: populate debt-customer-select with only indebted customers ──
 function populateDebtDropdown() {
     const sel = document.getElementById('debt-customer-select');
     if (!sel) return;
     const prior = sel.value;
-    sel.innerHTML = '<option value="">â€” select customer â€”</option>';
+    sel.innerHTML = '<option value="">— select customer —</option>';
     customers
         .filter(c => parseFloat(c.outstanding_debt || 0) > 0)
         .forEach(c => {
             const opt = document.createElement('option');
             opt.value = c.id;
-            opt.textContent = `${c.name} â€” Ksh ${parseFloat(c.outstanding_debt).toFixed(2)}`;
+            opt.textContent = `${c.name} — Ksh ${parseFloat(c.outstanding_debt).toFixed(2)}`;
             sel.appendChild(opt);
         });
     if (prior) sel.value = prior;
 }
 
-// â”€â”€ Feature 3 helper: build Quick Add buttons from is_quick_add flag â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Feature 3 helper: build Quick Add buttons from is_quick_add flag ──────────
 function renderQuickAddButtons() {
     const container = document.getElementById('quick-srv-container');
     if (!container) return;
@@ -214,7 +214,7 @@ function renderQuickAddButtons() {
     // Items flagged is_quick_add=true; fall back to three hardcoded names if column missing
     let quickItems = inventory.filter(i => i.is_quick_add === true || i.is_quick_add === 1);
     if (quickItems.length === 0) {
-        // Graceful fallback â€” same names as the old hardcoded buttons
+        // Graceful fallback — same names as the old hardcoded buttons
         const fallbackNames = ['Print / Copy', 'Typesetting', 'Binding Service'];
         quickItems = inventory.filter(i => fallbackNames.includes(i.name));
     }
@@ -303,7 +303,7 @@ function renderLedger() {
             <td class="py-2 px-4 text-right font-bold">Ksh ${grp.totalAmount.toFixed(2)}</td>
             <td class="py-2 px-4 text-center">${methodBadge}</td>
             <td class="py-2 px-4 text-center">
-                <span class="text-xs text-blue-500 font-bold select-none">â–¶ Edit</span>
+                <span class="text-xs text-blue-500 font-bold select-none">▶ Edit</span>
             </td>
         </tr>
         <tr id="grp-${safeKey}" class="hidden bg-slate-50">
@@ -346,7 +346,7 @@ window.toggleLedgerGroup = (key) => {
     const parentRow = row.previousElementSibling;
     const arrow = parentRow ? parentRow.querySelector('span.select-none') : null;
     if (arrow) {
-        arrow.textContent = row.classList.contains('hidden') ? 'â–¶ Edit' : 'â–¼ Close';
+        arrow.textContent = row.classList.contains('hidden') ? '▶ Edit' : '▼ Close';
     }
 };
 
@@ -409,7 +409,7 @@ window.setQuickServiceUI = function(name) {
     }
 };
 
-// â”€â”€ Feature 1: Add New Customer modal wiring â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Feature 1: Add New Customer modal wiring ──────────────────────────────────
 function openAddCustomerModal() {
     document.getElementById('new-cust-name').value = '';
     document.getElementById('new-cust-phone').value = '';
@@ -466,7 +466,7 @@ document.getElementById('btn-save-new-cust').addEventListener('click', async () 
     }
 });
 
-// â”€â”€ Feature 2: Debt Collection wiring â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Feature 2: Debt Collection wiring ────────────────────────────────────────
 document.getElementById('debt-customer-select').addEventListener('change', function() {
     const cust = customers.find(c => c.id == this.value);
     const balEl = document.getElementById('debt-current-balance');
@@ -533,7 +533,7 @@ document.getElementById('btn-collect-debt').addEventListener('click', async () =
         document.getElementById('debt-customer-select').value = '';
         document.getElementById('debt-current-balance').value = '';
 
-        statusEl.textContent = `âœ… Collected Ksh ${amount.toFixed(2)} from ${cust.name}. Remaining balance: Ksh ${newDebt.toFixed(2)}`;
+        statusEl.textContent = `✅ Collected Ksh ${amount.toFixed(2)} from ${cust.name}. Remaining balance: Ksh ${newDebt.toFixed(2)}`;
         statusEl.classList.remove('hidden');
         setTimeout(() => statusEl.classList.add('hidden'), 5000);
     } catch (err) {
@@ -589,7 +589,7 @@ document.getElementById('quick-log-btn').addEventListener('click', async () => {
           const ringItem = activeBindingItem || (activeBindingGroup && activeBindingGroup.items && activeBindingGroup.items[0] ? inventory.find(i => i.id === activeBindingGroup.items[0].id) : null);
 
           if (ringItem && !isNoStock) {
-              // Service price per binding job comes from the GROUP NAME (e.g. "KSH 50" â†’ 50)
+              // Service price per binding job comes from the GROUP NAME (e.g. "KSH 50" → 50)
               const groupNamePrice = activeBindingGroup
                   ? parseFloat((activeBindingGroup.name || '').replace(/[^0-9.]/g, '')) || null
                   : null;
@@ -600,11 +600,11 @@ document.getElementById('quick-log-btn').addEventListener('click', async () => {
               // Deduct ring stock by quantity
               const newRingStock = (logItem.stock_quantity || 0) - logQty;
               try {
-                  
+                  // if (navigator.onLine) await supabase.from('inventory').update({ stock_quantity: newRingStock }).eq('id', logItem.id); /* Handled by Postgres Trigger */
               } catch(e) {}
               if (logItem) logItem.stock_quantity = newRingStock;
           } else {
-              // Tape binding or no item configured â€” use generic Binding Service item
+              // Tape binding or no item configured — use generic Binding Service item
               let svcItem = inventory.find(i => i.name === 'Binding Service');
               if (!svcItem) { 
                   try {
@@ -643,7 +643,7 @@ document.getElementById('quick-log-btn').addEventListener('click', async () => {
           if (!logItem.is_service && typeof logItem.stock_quantity === 'number') {
               const newStock = logItem.stock_quantity - logQty;
               try {
-                  
+                  // if (navigator.onLine) await supabase.from('inventory').update({ stock_quantity: newStock }).eq('id', logItem.id); /* Handled by Postgres Trigger */
                   logItem.stock_quantity = newStock;
               } catch(e) {}
           }
@@ -755,7 +755,7 @@ document.getElementById('pos-qty').addEventListener('input', () => {
           
           const qRes = await insertSaleWithOfflineSupport(supabase, logPayload);
           if (qRes.offline) {
-              alert('No internet â€” sale saved locally and will sync when back online.');
+              alert('No internet — sale saved locally and will sync when back online.');
           }
         
         // Reset form
@@ -1006,7 +1006,7 @@ async function processReceipt(paymentMethod) {
             }
         }
         if (!navigator.onLine) {
-            alert('No internet â€” receipt sales saved locally and will sync when back online.');
+            alert('No internet — receipt sales saved locally and will sync when back online.');
         }
         
         generatePDF('receipt', paymentMethod);
@@ -1064,7 +1064,7 @@ window.voidSale = async (id) => {
 };
 
 
-// â”€â”€â”€ LEDGER TOGGLE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── LEDGER TOGGLE ────────────────────────────────────────────────────────────
 let ledgerVisible = false;
 
 // Ledger Auto-hide logic (5 minutes)
@@ -1092,12 +1092,12 @@ document.getElementById('btn-toggle-ledger').addEventListener('click', () => {
     if (ledgerVisible) {
         table.classList.remove('hidden');
         totals.classList.remove('hidden');
-        icon.textContent = 'ðŸ‘ï¸';
+        icon.textContent = '👁️';
         label.textContent = 'Hide';
     } else {
         table.classList.add('hidden');
         totals.classList.add('hidden');
-        icon.textContent = 'ðŸš«';
+        icon.textContent = '🚫';
         label.textContent = 'Show';
     }
     resetLedgerTimer();
@@ -1106,7 +1106,7 @@ document.getElementById('btn-toggle-ledger').addEventListener('click', () => {
 // Initialize timer on load
 resetLedgerTimer();
 
-// â”€â”€â”€ QUICK EXPENSE LOGGER â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── QUICK EXPENSE LOGGER ─────────────────────────────────────────────────────
 
 // Fetch users for wage dropdown
 async function loadUsersForWage() {
@@ -1201,7 +1201,7 @@ document.getElementById('btn-log-expense').addEventListener('click', async () =>
         document.getElementById('exp-amount').value = '';
         
         if (res.offline) {
-            alert('No internet â€” expense queued locally (' + desc + ' - Ksh ' + amt + ')');
+            alert('No internet — expense queued locally (' + desc + ' - Ksh ' + amt + ')');
         } else {
             alert('Expense logged: ' + desc + ' - Ksh ' + amt);
         }
@@ -1212,7 +1212,7 @@ document.getElementById('btn-log-expense').addEventListener('click', async () =>
     }
 });
 
-// â”€â”€â”€ QUICK RESOURCE OPENER â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── QUICK RESOURCE OPENER ────────────────────────────────────────────────────
 const qresInput = document.getElementById('qres-search');
 const qresResults = document.getElementById('qres-results');
 
@@ -1469,7 +1469,7 @@ if (mainPayDebt) {
                 if (item.name.toLowerCase().includes('binding')) await deductBindingMaterials(qty);
             } else if (item.type === 'fixed') {
                 const newStock = (item.stock_quantity || 0) - qty;
-                
+                /* await supabase.from('inventory').update({ stock_quantity: newStock }).eq('id', item.id); - Handled by Postgres Trigger */
                 item.stock_quantity = newStock;
             }
 
@@ -1556,7 +1556,7 @@ if (btnDebtCart) {
                 const logItem = inventory.find(i => i.id === item.id);
                 if (logItem && logItem.type === 'fixed') {
                     const newStock = (logItem.stock_quantity || 0) - item.qty;
-                    
+                    /* await supabase.from('inventory').update({ stock_quantity: newStock }).eq('id', item.id); - Handled by Postgres Trigger */
                     logItem.stock_quantity = newStock;
                 }
             }
