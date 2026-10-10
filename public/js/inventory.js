@@ -468,7 +468,7 @@ document.getElementById('btn-export-excel').addEventListener('click', async () =
 
 window.openEditWizard = async (id) => {
     // 1. Find the item to see its name and parent_id
-    const selected = inventory.find(i => i.id === id);
+    const selected = allInventory.find(i => i.id === id);
     if (!selected) return;
 
     // 2. Fetch the entire family tree. We fetch everything to reconstruct the tree locally easily
