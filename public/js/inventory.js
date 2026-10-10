@@ -512,8 +512,8 @@ window.openEditWizard = async (id) => {
                 <h3 class="text-sm font-bold text-slate-800 mb-3 uppercase tracking-wide">1. Core Product Info</h3>
                 <div class="grid grid-cols-2 gap-4">
                     <div class="col-span-2">
-                        <label class="block text-xs font-semibold mb-1">Base Name</label>
-                        <input type="text" id="wiz-name" class="w-full border rounded-lg px-3 py-2 text-sm" value="${t1.name?.split(' (')[0] || ''}">
+                        <label class="block text-xs font-semibold mb-1">Base Name (Optional)</label>
+                        <input type="text" id="wiz-name" class="w-full border rounded-lg px-3 py-2 text-sm" value="${t1.name || ''}">
                     </div>
                     <div>
                         <label class="block text-xs font-semibold mb-1">Type</label>
@@ -534,8 +534,8 @@ window.openEditWizard = async (id) => {
                 <h3 class="text-sm font-bold text-blue-800 mb-3 uppercase tracking-wide">2. Tier 1: Base Retail Unit</h3>
                 <div class="grid grid-cols-3 gap-3">
                     <div class="col-span-3">
-                        <label class="block text-xs font-semibold mb-1">Unit Modifier</label>
-                        <input type="text" id="wiz-t1-mod" class="w-full border rounded-lg px-3 py-2 text-sm" value="${t1.name?.match(/\(([^)]+)\)/)?.[1] || ''}">
+                        <label class="block text-xs font-semibold mb-1">Product Name</label>
+                        <input type="text" id="wiz-t1-mod" class="w-full border rounded-lg px-3 py-2 text-sm" value="${t1.name || ''}">
                     </div>
                     <div><label class="block text-xs font-semibold mb-1">Cost Price</label><input type="number" id="wiz-t1-cp" class="w-full border rounded-lg px-3 py-2 text-sm" value="${t1.buying_price||0}"></div>
                     <div><label class="block text-xs font-semibold mb-1">Sell Price</label><input type="number" id="wiz-t1-sp" class="w-full border rounded-lg px-3 py-2 text-sm" value="${t1.selling_price||0}"></div>
@@ -553,7 +553,7 @@ window.openEditWizard = async (id) => {
                     </div>
                 </div>
                 <div id="t2-body" class="${t2 ? '' : 'hidden'} grid grid-cols-4 gap-3">
-                    <div class="col-span-4"><label class="block text-xs font-semibold mb-1">Unit Modifier Name</label><input type="text" id="wiz-t2-mod" class="w-full border rounded-lg px-3 py-2 text-sm" value="${t2?.name?.match(/\(([^)]+)\)/)?.[1] || ''}"></div>
+                    <div class="col-span-4"><label class="block text-xs font-semibold mb-1">Product Name</label><input type="text" id="wiz-t2-mod" class="w-full border rounded-lg px-3 py-2 text-sm" value="${t2?.name || ''}"></div>
                     <div><label class="block text-xs font-bold text-blue-700 mb-1">Units per Base</label><input type="number" id="wiz-t2-units" class="w-full border-2 border-blue-300 rounded-lg px-3 py-2 text-sm font-bold" value="${t1.units_per_parent || 1}"></div>
                     <div><label class="block text-xs font-semibold mb-1">Cost Price</label><input type="number" id="wiz-t2-cp" class="w-full border rounded-lg px-3 py-2 text-sm" value="${t2?.buying_price||0}"></div>
                     <div><label class="block text-xs font-semibold mb-1">Sell Price</label><input type="number" id="wiz-t2-sp" class="w-full border rounded-lg px-3 py-2 text-sm" value="${t2?.selling_price||0}"></div>
@@ -571,7 +571,7 @@ window.openEditWizard = async (id) => {
                     </div>
                 </div>
                 <div id="t3-body" class="${t3 ? '' : 'hidden'} grid grid-cols-4 gap-3">
-                    <div class="col-span-4"><label class="block text-xs font-semibold mb-1">Unit Modifier Name</label><input type="text" id="wiz-t3-mod" class="w-full border rounded-lg px-3 py-2 text-sm" value="${t3?.name?.match(/\(([^)]+)\)/)?.[1] || ''}"></div>
+                    <div class="col-span-4"><label class="block text-xs font-semibold mb-1">Product Name</label><input type="text" id="wiz-t3-mod" class="w-full border rounded-lg px-3 py-2 text-sm" value="${t3?.name || ''}"></div>
                     <div><label class="block text-xs font-bold text-blue-700 mb-1">Units per Tier 2</label><input type="number" id="wiz-t3-units" class="w-full border-2 border-blue-300 rounded-lg px-3 py-2 text-sm font-bold" value="${t2?.units_per_parent || 1}"></div>
                     <div><label class="block text-xs font-semibold mb-1">Cost Price</label><input type="number" id="wiz-t3-cp" class="w-full border rounded-lg px-3 py-2 text-sm" value="${t3?.buying_price||0}"></div>
                     <div><label class="block text-xs font-semibold mb-1">Sell Price</label><input type="number" id="wiz-t3-sp" class="w-full border rounded-lg px-3 py-2 text-sm" value="${t3?.selling_price||0}"></div>
@@ -589,7 +589,7 @@ window.openEditWizard = async (id) => {
                     </div>
                 </div>
                 <div id="t4-body" class="${t4 ? '' : 'hidden'} grid grid-cols-4 gap-3">
-                    <div class="col-span-4"><label class="block text-xs font-semibold mb-1">Unit Modifier Name</label><input type="text" id="wiz-t4-mod" class="w-full border rounded-lg px-3 py-2 text-sm" value="${t4?.name?.match(/\(([^)]+)\)/)?.[1] || ''}"></div>
+                    <div class="col-span-4"><label class="block text-xs font-semibold mb-1">Product Name</label><input type="text" id="wiz-t4-mod" class="w-full border rounded-lg px-3 py-2 text-sm" value="${t4?.name || ''}"></div>
                     <div><label class="block text-xs font-bold text-blue-700 mb-1">Units per Tier 3</label><input type="number" id="wiz-t4-units" class="w-full border-2 border-blue-300 rounded-lg px-3 py-2 text-sm font-bold" value="${t3?.units_per_parent || 1}"></div>
                     <div><label class="block text-xs font-semibold mb-1">Cost Price</label><input type="number" id="wiz-t4-cp" class="w-full border rounded-lg px-3 py-2 text-sm" value="${t4?.buying_price||0}"></div>
                     <div><label class="block text-xs font-semibold mb-1">Sell Price</label><input type="number" id="wiz-t4-sp" class="w-full border rounded-lg px-3 py-2 text-sm" value="${t4?.selling_price||0}"></div>
