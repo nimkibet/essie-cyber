@@ -51,7 +51,7 @@ function renderTable() {
             <td class="py-3 px-4 text-right font-bold text-slate-800">${i.selling_price}</td>
             <td class="py-3 px-4 text-center">${i.is_service ? '-' : i.stock_quantity}</td>
             <td class="py-3 px-4 text-center">
-                <button class="bg-blue-50 hover:bg-blue-100 text-blue-700 px-3 py-1 rounded font-bold text-xs mr-2 transition-colors" onclick="openEditWizard('${i.id}')">Edit</button>
+                <button class="bg-blue-50 hover:bg-blue-100 text-blue-700 px-3 py-1 rounded font-bold text-xs mr-2 transition-colors" onclick="toggleEdit('${i.id}')">Edit</button>
                 <button class="bg-red-50 hover:bg-red-100 text-red-600 px-3 py-1 rounded font-bold text-xs transition-colors" onclick="del('${i.id}', '${i.name.replace(/'/g, "\\'")}')">Delete</button>
             </td>
         </tr>
@@ -89,7 +89,8 @@ function renderTable() {
                             <label class="ml-2 text-sm font-bold text-slate-700">This is a Service (Raw materials tracked via Admin/Resources)</label>
                         </div>
                         <div class="flex gap-2">
-                            <button onclick="openEditWizard('${i.id}')" class="px-4 py-2 bg-white border border-slate-300 rounded-lg text-sm font-bold text-slate-600 hover:bg-slate-50 transition-colors">Cancel</button>
+                            <button onclick="openEditWizard('${i.id}')" class="px-4 py-2 bg-purple-50 text-purple-700 border border-purple-200 rounded-lg text-sm font-bold hover:bg-purple-100 transition-colors">Edit Hierarchy</button>
+                              <button onclick="toggleEdit('${i.id}')" class="px-4 py-2 bg-white border border-slate-300 rounded-lg text-sm font-bold text-slate-600 hover:bg-slate-50 transition-colors">Cancel</button>
                             <button onclick="saveEdit('${i.id}')" class="px-4 py-2 bg-blue-600 rounded-lg text-sm font-bold text-white hover:bg-blue-700 transition-colors shadow-md shadow-blue-600/20">Save Changes</button>
                         </div>
                     </div>
