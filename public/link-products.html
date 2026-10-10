@@ -59,17 +59,40 @@
     </div>
 
     <!-- Edit Link Modal (units_per_parent) -->
+    
     <div id="link-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 hidden">
-        <div class="bg-white p-6 rounded-xl w-full max-w-sm">
-            <h3 class="font-bold text-lg mb-2">Set Conversion Rate</h3>
+        <div class="bg-white p-6 rounded-xl w-full max-w-md shadow-2xl">
+            <h3 class="font-bold text-lg mb-2">Set Conversion & Details</h3>
             <p class="text-sm text-slate-600 mb-4">How many <strong id="lm-child-name" class="text-blue-600"></strong> are in one <strong id="lm-parent-name" class="text-blue-600"></strong>?</p>
-            <input type="number" id="lm-units" class="w-full border px-3 py-2 rounded-lg font-bold text-lg" value="1" min="1">
-            <div class="mt-4 flex justify-end gap-2">
-                <button id="lm-cancel" class="px-4 py-2 bg-slate-100 rounded-lg font-bold">Cancel</button>
-                <button id="lm-confirm" class="px-4 py-2 bg-blue-600 text-white rounded-lg font-bold">Confirm</button>
+            
+            <div class="space-y-3">
+                <div>
+                    <label class="block text-xs font-bold mb-1">Units per Parent</label>
+                    <input type="number" id="lm-units" class="w-full border-2 border-blue-300 px-3 py-2 rounded-lg font-bold text-lg" value="1" min="1">
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-bold mb-1 text-slate-600">Child Buying Price</label>
+                        <input type="number" id="lm-bp" class="w-full border px-3 py-2 rounded-lg text-sm" value="0">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold mb-1 text-slate-600">Child Selling Price</label>
+                        <input type="number" id="lm-sp" class="w-full border px-3 py-2 rounded-lg text-sm" value="0">
+                    </div>
+                    <div class="col-span-2">
+                        <label class="block text-xs font-bold mb-1 text-slate-600">Child Stock Qty</label>
+                        <input type="number" id="lm-stock" class="w-full border px-3 py-2 rounded-lg text-sm" value="0">
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-6 flex justify-end gap-2">
+                <button id="lm-cancel" class="px-4 py-2 bg-slate-100 rounded-lg font-bold hover:bg-slate-200">Cancel</button>
+                <button id="lm-confirm" class="px-4 py-2 bg-blue-600 text-white rounded-lg font-bold hover:bg-blue-700">Confirm & Link</button>
             </div>
         </div>
     </div>
+
 
     <script type="module" src="js/linkProducts.js"></script>
 </body>

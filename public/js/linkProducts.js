@@ -71,19 +71,36 @@ window.dropOnParent = (e, parentId) => {
     const modal = document.getElementById('link-modal');
     document.getElementById('lm-parent-name').innerText = parentNode.name;
     document.getElementById('lm-child-name').innerText = draggedItem.name;
+    
     document.getElementById('lm-units').value = 1;
+    document.getElementById('lm-bp').value = draggedItem.buying_price || 0;
+    document.getElementById('lm-sp').value = draggedItem.selling_price || 0;
+    document.getElementById('lm-stock').value = draggedItem.stock_quantity || 0;
+
     modal.classList.remove('hidden');
 
     document.getElementById('lm-cancel').onclick = () => modal.classList.add('hidden');
     document.getElementById('lm-confirm').onclick = () => {
+        
         const units = parseInt(document.getElementById('lm-units').value || 1);
-        parentNode.children.push({ ...draggedItem, units_per_parent: units });
+        const bp = parseFloat(document.getElementById('lm-bp').value || 0);
+        const sp = parseFloat(document.getElementById('lm-sp').value || 0);
+        const stock = parseInt(document.getElementById('lm-stock').value || 0);
+
+        
+        parentNode.children.push({ ...draggedItem, units_per_parent: units, buying_price: bp, selling_price: sp, stock_quantity: stock });
+
+        
         
         pendingLinks.push({
             parent_id: parentId,
             child_id: draggedItem.id,
-            units_per_parent: units
+            units_per_parent: units,
+            buying_price: bp,
+            selling_price: sp,
+            stock_quantity: stock
         });
+
 
         document.getElementById('btn-save-links').classList.remove('hidden');
         modal.classList.add('hidden');
@@ -141,10 +158,15 @@ document.getElementById('btn-save-links').addEventListener('click', async () => 
 
     for (const link of pendingLinks) {
         // Update the child item with the new parent_id and units_per_parent
+        
         await supabase.from('inventory').update({
             parent_id: link.parent_id,
-            units_per_parent: link.units_per_parent
+            units_per_parent: link.units_per_parent,
+            buying_price: link.buying_price,
+            selling_price: link.selling_price,
+            stock_quantity: link.stock_quantity
         }).eq('id', link.child_id);
+
     }
 
     alert('Links saved successfully!');
