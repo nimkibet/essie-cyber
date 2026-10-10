@@ -42,6 +42,19 @@ function renderTable() {
 
     let html = '';
     filtered.forEach(i => {
+        // Calculate Yield Text
+        let yieldText = '-';
+        if (i.parent_id && i.units_per_parent) {
+            const parent = allInventory.find(p => p.id === i.parent_id);
+            if (parent) {
+                yieldText = `<span class="text-xs text-slate-400">1 ${parent.name} = </span><br/><span class="font-bold">${i.units_per_parent} pcs</span>`;
+            } else {
+                yieldText = `<span class="font-bold">${i.units_per_parent} pcs</span>`;
+            }
+        } else if (i.units_per_parent > 1) {
+            yieldText = `<span class="font-bold text-xs text-slate-500">${i.units_per_parent} pcs (Bulk)</span>`;
+        }
+
         // Main Display Row
         html += `
         <tr class="hover:bg-slate-50 border-b border-slate-100 transition-colors">
@@ -50,6 +63,7 @@ function renderTable() {
             <td class="py-3 px-4 text-right">${i.buying_price}</td>
             <td class="py-3 px-4 text-right font-bold text-slate-800">${i.selling_price}</td>
             <td class="py-3 px-4 text-center">${i.is_service ? '-' : i.stock_quantity}</td>
+            <td class="py-3 px-4 text-center leading-tight">${i.is_service ? '-' : yieldText}</td>
             <td class="py-3 px-4 text-center">
                 <button class="bg-blue-50 hover:bg-blue-100 text-blue-700 px-3 py-1 rounded font-bold text-xs mr-2 transition-colors" onclick="toggleEdit('${i.id}')">Edit</button>
                 <button class="bg-red-50 hover:bg-red-100 text-red-600 px-3 py-1 rounded font-bold text-xs transition-colors" onclick="del('${i.id}', '${i.name.replace(/'/g, "\\'")}')">Delete</button>
@@ -58,7 +72,7 @@ function renderTable() {
         
         <!-- Inline Edit Row (Hidden by default) -->
         <tr id="edit-row-${i.id}" class="hidden bg-slate-100 border-b-2 border-slate-200 shadow-inner">
-            <td colspan="6" class="p-4">
+            <td colspan="7" class="p-4">
                 <div class="grid grid-cols-1 md:grid-cols-6 gap-4 items-end bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
                     <div class="md:col-span-2">
                         <label class="block text-xs font-bold mb-1 text-slate-600">Item Name</label>
@@ -540,7 +554,7 @@ window.openEditWizard = async (id) => {
                     </div>
                     <div><label class="block text-xs font-semibold mb-1">Cost Price</label><input type="number" id="wiz-t1-cp" class="w-full border rounded-lg px-3 py-2 text-sm" value="${t1.buying_price||0}"></div>
                     <div><label class="block text-xs font-semibold mb-1">Sell Price</label><input type="number" id="wiz-t1-sp" class="w-full border rounded-lg px-3 py-2 text-sm" value="${t1.selling_price||0}"></div>
-                    <div><label class="block text-xs font-semibold mb-1">Initial Stock</label><input type="number" id="wiz-t1-stock" class="w-full border rounded-lg px-3 py-2 text-sm" value="${t1.stock_quantity||0}"></div>
+                    <div><label class="block text-xs font-semibold mb-1">Initial Stock (Boxes/Bulk)</label><input type="number" id="wiz-t1-stock" class="w-full border rounded-lg px-3 py-2 text-sm" value="${t1.stock_quantity||0}"></div>
                 </div>
             </div>
 
@@ -555,7 +569,7 @@ window.openEditWizard = async (id) => {
                 </div>
                 <div id="t2-body" class="${t2 ? '' : 'hidden'} grid grid-cols-4 gap-3">
                     <div class="col-span-4"><label class="block text-xs font-semibold mb-1">Product Name</label><input type="text" id="wiz-t2-mod" class="w-full border rounded-lg px-3 py-2 text-sm" value="${t2?.name || ''}"></div>
-                    <div><label class="block text-xs font-bold text-blue-700 mb-1">Units per Base</label><input type="number" id="wiz-t2-units" class="w-full border-2 border-blue-300 rounded-lg px-3 py-2 text-sm font-bold" value="${t1.units_per_parent || 1}"></div>
+                    <div><label class="block text-xs font-bold text-blue-700 mb-1">Total Pieces in ONE Tier 1 (Base)</label><input type="number" id="wiz-t2-units" class="w-full border-2 border-blue-300 rounded-lg px-3 py-2 text-sm font-bold" value="${t1.units_per_parent || 1}"></div>
                     <div><label class="block text-xs font-semibold mb-1">Cost Price</label><input type="number" id="wiz-t2-cp" class="w-full border rounded-lg px-3 py-2 text-sm" value="${t2?.buying_price||0}"></div>
                     <div><label class="block text-xs font-semibold mb-1">Sell Price</label><input type="number" id="wiz-t2-sp" class="w-full border rounded-lg px-3 py-2 text-sm" value="${t2?.selling_price||0}"></div>
                     <div><label class="block text-xs font-semibold mb-1">Bulk Stock</label><input type="number" id="wiz-t2-stock" class="w-full border rounded-lg px-3 py-2 text-sm" value="${t2?.stock_quantity||0}"></div>
@@ -573,7 +587,7 @@ window.openEditWizard = async (id) => {
                 </div>
                 <div id="t3-body" class="${t3 ? '' : 'hidden'} grid grid-cols-4 gap-3">
                     <div class="col-span-4"><label class="block text-xs font-semibold mb-1">Product Name</label><input type="text" id="wiz-t3-mod" class="w-full border rounded-lg px-3 py-2 text-sm" value="${t3?.name || ''}"></div>
-                    <div><label class="block text-xs font-bold text-blue-700 mb-1">Units per Tier 2</label><input type="number" id="wiz-t3-units" class="w-full border-2 border-blue-300 rounded-lg px-3 py-2 text-sm font-bold" value="${t2?.units_per_parent || 1}"></div>
+                    <div><label class="block text-xs font-bold text-blue-700 mb-1">Total Pieces in ONE Tier 2</label><input type="number" id="wiz-t3-units" class="w-full border-2 border-blue-300 rounded-lg px-3 py-2 text-sm font-bold" value="${t2?.units_per_parent || 1}"></div>
                     <div><label class="block text-xs font-semibold mb-1">Cost Price</label><input type="number" id="wiz-t3-cp" class="w-full border rounded-lg px-3 py-2 text-sm" value="${t3?.buying_price||0}"></div>
                     <div><label class="block text-xs font-semibold mb-1">Sell Price</label><input type="number" id="wiz-t3-sp" class="w-full border rounded-lg px-3 py-2 text-sm" value="${t3?.selling_price||0}"></div>
                     <div><label class="block text-xs font-semibold mb-1">Bulk Stock</label><input type="number" id="wiz-t3-stock" class="w-full border rounded-lg px-3 py-2 text-sm" value="${t3?.stock_quantity||0}"></div>
@@ -591,7 +605,7 @@ window.openEditWizard = async (id) => {
                 </div>
                 <div id="t4-body" class="${t4 ? '' : 'hidden'} grid grid-cols-4 gap-3">
                     <div class="col-span-4"><label class="block text-xs font-semibold mb-1">Product Name</label><input type="text" id="wiz-t4-mod" class="w-full border rounded-lg px-3 py-2 text-sm" value="${t4?.name || ''}"></div>
-                    <div><label class="block text-xs font-bold text-blue-700 mb-1">Units per Tier 3</label><input type="number" id="wiz-t4-units" class="w-full border-2 border-blue-300 rounded-lg px-3 py-2 text-sm font-bold" value="${t3?.units_per_parent || 1}"></div>
+                    <div><label class="block text-xs font-bold text-blue-700 mb-1">Total Pieces in ONE Tier 3</label><input type="number" id="wiz-t4-units" class="w-full border-2 border-blue-300 rounded-lg px-3 py-2 text-sm font-bold" value="${t3?.units_per_parent || 1}"></div>
                     <div><label class="block text-xs font-semibold mb-1">Cost Price</label><input type="number" id="wiz-t4-cp" class="w-full border rounded-lg px-3 py-2 text-sm" value="${t4?.buying_price||0}"></div>
                     <div><label class="block text-xs font-semibold mb-1">Sell Price</label><input type="number" id="wiz-t4-sp" class="w-full border rounded-lg px-3 py-2 text-sm" value="${t4?.selling_price||0}"></div>
                     <div><label class="block text-xs font-semibold mb-1">Bulk Stock</label><input type="number" id="wiz-t4-stock" class="w-full border rounded-lg px-3 py-2 text-sm" value="${t4?.stock_quantity||0}"></div>
