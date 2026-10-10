@@ -613,7 +613,99 @@ window.openEditWizard = async (id) => {
             </div>
         </div>
     `, async (close) => {
-        alert("Updating full hierarchy is complex. For now, use this view to inspect the hierarchy, or delete and recreate it.");
-        close();
+        const type = document.getElementById('wiz-type').value;
+        const isService = document.getElementById('wiz-is-service').checked;
+
+        let t4_enabled = document.getElementById('wiz-t4-en').checked;
+        let t4_payload = t4_enabled ? {
+            name: document.getElementById('wiz-t4-mod').value,
+            type, is_service: isService, tier_level: 4,
+            buying_price: parseFloat(document.getElementById('wiz-t4-cp').value||0),
+            selling_price: parseFloat(document.getElementById('wiz-t4-sp').value||0),
+            stock_quantity: parseInt(document.getElementById('wiz-t4-stock').value||0),
+            _my_units: parseInt(document.getElementById('wiz-t4-units').value||1),
+            id: t4 ? t4.id : null
+        } : null;
+
+        let t3_enabled = document.getElementById('wiz-t3-en').checked;
+        let t3_payload = t3_enabled ? {
+            name: document.getElementById('wiz-t3-mod').value,
+            type, is_service: isService, tier_level: 3,
+            buying_price: parseFloat(document.getElementById('wiz-t3-cp').value||0),
+            selling_price: parseFloat(document.getElementById('wiz-t3-sp').value||0),
+            stock_quantity: parseInt(document.getElementById('wiz-t3-stock').value||0),
+            _my_units: parseInt(document.getElementById('wiz-t3-units').value||1),
+            id: t3 ? t3.id : null
+        } : null;
+
+        let t2_enabled = document.getElementById('wiz-t2-en').checked;
+        let t2_payload = t2_enabled ? {
+            name: document.getElementById('wiz-t2-mod').value,
+            type, is_service: isService, tier_level: 2,
+            buying_price: parseFloat(document.getElementById('wiz-t2-cp').value||0),
+            selling_price: parseFloat(document.getElementById('wiz-t2-sp').value||0),
+            stock_quantity: parseInt(document.getElementById('wiz-t2-stock').value||0),
+            _my_units: parseInt(document.getElementById('wiz-t2-units').value||1),
+            id: t2 ? t2.id : null
+        } : null;
+
+        let t1_payload = {
+            name: document.getElementById('wiz-t1-mod').value,
+            type, is_service: isService, tier_level: 1,
+            buying_price: parseFloat(document.getElementById('wiz-t1-cp').value||0),
+            selling_price: parseFloat(document.getElementById('wiz-t1-sp').value||0),
+            stock_quantity: parseInt(document.getElementById('wiz-t1-stock').value||0),
+            id: t1 ? t1.id : null
+        };
+
+        const btn = document.getElementById('modal-btn-confirm');
+        if(btn) { btn.innerText = 'Updating...'; btn.disabled = true; }
+
+        try {
+            if (!t4_enabled && t4) await supabase.from('inventory').delete().eq('id', t4.id);
+            if (!t3_enabled && t3) await supabase.from('inventory').delete().eq('id', t3.id);
+            if (!t2_enabled && t2) await supabase.from('inventory').delete().eq('id', t2.id);
+
+            const tiers = [t4_payload, t3_payload, t2_payload, t1_payload].filter(t => t !== null);
+            let lastParentId = null;
+
+            for (let i = 0; i < tiers.length; i++) {
+                const t = tiers[i];
+                if (!t.name) throw new Error("Product names cannot be empty.");
+                
+                const p = {
+                    name: t.name,
+                    type: t.type,
+                    is_service: t.is_service,
+                    tier_level: t.tier_level,
+                    buying_price: t.buying_price,
+                    selling_price: t.selling_price,
+                    stock_quantity: t.stock_quantity,
+                    parent_id: lastParentId
+                };
+                
+                if (i > 0) {
+                    p.units_per_parent = tiers[i-1]._my_units || 1;
+                } else {
+                    p.units_per_parent = 1;
+                }
+                
+                if (t.id) {
+                    const { error } = await supabase.from('inventory').update(p).eq('id', t.id);
+                    if (error) throw error;
+                    lastParentId = t.id;
+                } else {
+                    const { data, error } = await supabase.from('inventory').insert([p]).select().single();
+                    if (error) throw error;
+                    lastParentId = data.id;
+                }
+            }
+
+            close();
+            load();
+        } catch (e) {
+            alert("Error updating hierarchy: " + e.message);
+            if(btn) { btn.innerText = 'Update Hierarchy'; btn.disabled = false; }
+        }
     }, 'Update Hierarchy', 'max-w-4xl');
 };
