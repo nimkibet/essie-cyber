@@ -1646,15 +1646,15 @@ let drawerDraggedItem = null;
 function renderDrawerProducts() {
     const term = drawerSearch.value.toLowerCase();
     const matches = inventory.filter(i => i.name.toLowerCase().includes(term));
-    drawerList.innerHTML = matches.slice(0, 15).map(i => 
+    drawerList.innerHTML = matches.slice(0, 15).map(i => `
         <div class="p-2 bg-white border border-slate-200 rounded cursor-grab hover:border-blue-400 shadow-sm flex justify-between items-center text-xs" 
-             draggable="true" ondragstart="drawerDragStart(event, ' + i.id + ')">
+             draggable="true" ondragstart="drawerDragStart(event, '${i.id}')">
             <div>
-                <div class="font-bold text-slate-800"> + i.name + </div>
-                <div class="text-slate-500">Ksh  + (i.selling_price || 0) + </div>
+                <div class="font-bold text-slate-800">${i.name}</div>
+                <div class="text-slate-500">Ksh ${i.selling_price || 0}</div>
             </div>
         </div>
-    ).join('');
+    `).join('');
 }
 
 window.drawerDragStart = (e, id) => {
