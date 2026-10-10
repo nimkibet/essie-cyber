@@ -39,24 +39,18 @@
         <button id="btn-quick-add" class="px-3 py-1 bg-blue-600 text-white font-bold rounded-lg text-sm shadow-md shadow-blue-600/20">Save Product</button>
     </div>
     <div class="p-4 overflow-y-auto flex-1 space-y-4" id="quick-add-form">
-        <div class="p-3 bg-slate-50 border border-slate-200 rounded-xl transition-colors" id="qa-section-1">
+        <!-- TIER 1 -->
+        <div class="p-3 bg-blue-50 border border-blue-200 rounded-xl transition-colors" id="qa-section-1">
             <div class="flex justify-between items-center mb-2">
-                <h3 class="text-xs font-bold text-slate-800 uppercase">1. Core Product Info</h3>
-                <span id="qa-linked-badge" class="hidden px-2 py-1 bg-green-100 text-green-700 text-[10px] font-bold rounded-lg border border-green-200">Linked to Existing</span>
+                <h3 class="text-xs font-bold text-blue-800 uppercase">1. Tier 1 (Base Unit)</h3>
+                <span id="qa-linked-badge-1" class="hidden px-2 py-1 bg-green-100 text-green-700 text-[10px] font-bold rounded-lg border border-green-200">Linked</span>
             </div>
             <div class="space-y-2">
-                <div><label class="block text-xs font-semibold">Base Name (e.g. A4 Paper)</label><input type="text" id="qa-name" class="w-full border rounded-lg px-2 py-1 text-sm"></div>
+                <div><label class="block text-xs font-semibold">Product Name (e.g. A4 Paper Sheet)</label><input type="text" id="qa-t1-name" class="w-full border rounded-lg px-2 py-1 text-sm"></div>
                 <div class="flex gap-2">
                     <div class="flex-1"><label class="block text-xs font-semibold">Type</label><select id="qa-type" class="w-full border rounded-lg px-2 py-1 text-sm"><option value="fixed">Fixed</option><option value="variable">Variable</option></select></div>
                     <div class="flex items-center pt-4"><input type="checkbox" id="qa-svc" class="mr-1 h-3 w-3"><label class="text-xs font-semibold">Service</label></div>
                 </div>
-            </div>
-        </div>
-
-        <div class="p-3 bg-blue-50 border border-blue-100 rounded-xl">
-            <h3 class="text-xs font-bold text-blue-800 mb-2 uppercase">2. Tier 1: Base Unit</h3>
-            <div class="space-y-2">
-                <div><label class="block text-xs font-semibold">Unit Modifier (e.g. Sheet)</label><input type="text" id="qa-t1-mod" class="w-full border rounded-lg px-2 py-1 text-sm"></div>
                 <div class="grid grid-cols-3 gap-2">
                     <div><label class="block text-[10px] font-semibold">Cost</label><input type="number" id="qa-t1-cp" class="w-full border rounded-lg px-2 py-1 text-sm" value="0"></div>
                     <div><label class="block text-[10px] font-semibold">Sell</label><input type="number" id="qa-t1-sp" class="w-full border rounded-lg px-2 py-1 text-sm" value="0"></div>
@@ -64,14 +58,18 @@
                 </div>
             </div>
         </div>
-        
-        <div class="p-3 bg-slate-50 border border-slate-200 rounded-xl">
+
+        <!-- TIER 2 -->
+        <div class="p-3 bg-slate-50 border border-slate-200 rounded-xl transition-colors" id="qa-section-2">
             <div class="flex justify-between items-center mb-2">
-                <h3 class="text-xs font-bold text-slate-800 uppercase">3. Tier 2</h3>
-                <div class="flex items-center"><input type="checkbox" id="qa-t2-en" class="mr-1 h-3 w-3" onchange="document.getElementById('qa-t2-body').classList.toggle('hidden', !this.checked)"><label class="text-xs font-bold text-blue-600">Enable</label></div>
+                <h3 class="text-xs font-bold text-slate-800 uppercase">2. Tier 2</h3>
+                <div class="flex items-center gap-2">
+                    <span id="qa-linked-badge-2" class="hidden px-2 py-1 bg-green-100 text-green-700 text-[10px] font-bold rounded-lg border border-green-200">Linked</span>
+                    <div class="flex items-center"><input type="checkbox" id="qa-t2-en" class="mr-1 h-3 w-3" onchange="document.getElementById('qa-t2-body').classList.toggle('hidden', !this.checked)"><label class="text-xs font-bold text-blue-600">Enable</label></div>
+                </div>
             </div>
             <div id="qa-t2-body" class="hidden space-y-2">
-                <div><label class="block text-xs font-semibold">Unit Modifier (e.g. Ream)</label><input type="text" id="qa-t2-mod" class="w-full border rounded-lg px-2 py-1 text-sm"></div>
+                <div><label class="block text-xs font-semibold">Product Name (e.g. A4 Paper Ream)</label><input type="text" id="qa-t2-name" class="w-full border rounded-lg px-2 py-1 text-sm"></div>
                 <div><label class="block text-xs font-bold text-blue-700">Units per Tier 1</label><input type="number" id="qa-t2-units" class="w-full border-2 border-blue-300 rounded-lg px-2 py-1 text-sm font-bold" value="1"></div>
                 <div class="grid grid-cols-3 gap-2">
                     <div><label class="block text-[10px] font-semibold">Cost</label><input type="number" id="qa-t2-cp" class="w-full border rounded-lg px-2 py-1 text-sm" value="0"></div>
@@ -80,14 +78,18 @@
                 </div>
             </div>
         </div>
-        
-        <div class="p-3 bg-slate-50 border border-slate-200 rounded-xl">
+
+        <!-- TIER 3 -->
+        <div class="p-3 bg-slate-50 border border-slate-200 rounded-xl transition-colors" id="qa-section-3">
             <div class="flex justify-between items-center mb-2">
-                <h3 class="text-xs font-bold text-slate-800 uppercase">4. Tier 3</h3>
-                <div class="flex items-center"><input type="checkbox" id="qa-t3-en" class="mr-1 h-3 w-3" onchange="document.getElementById('qa-t3-body').classList.toggle('hidden', !this.checked)"><label class="text-xs font-bold text-blue-600">Enable</label></div>
+                <h3 class="text-xs font-bold text-slate-800 uppercase">3. Tier 3</h3>
+                <div class="flex items-center gap-2">
+                    <span id="qa-linked-badge-3" class="hidden px-2 py-1 bg-green-100 text-green-700 text-[10px] font-bold rounded-lg border border-green-200">Linked</span>
+                    <div class="flex items-center"><input type="checkbox" id="qa-t3-en" class="mr-1 h-3 w-3" onchange="document.getElementById('qa-t3-body').classList.toggle('hidden', !this.checked)"><label class="text-xs font-bold text-blue-600">Enable</label></div>
+                </div>
             </div>
             <div id="qa-t3-body" class="hidden space-y-2">
-                <div><label class="block text-xs font-semibold">Unit Modifier (e.g. Box)</label><input type="text" id="qa-t3-mod" class="w-full border rounded-lg px-2 py-1 text-sm"></div>
+                <div><label class="block text-xs font-semibold">Product Name (e.g. A4 Paper Box)</label><input type="text" id="qa-t3-name" class="w-full border rounded-lg px-2 py-1 text-sm"></div>
                 <div><label class="block text-xs font-bold text-blue-700">Units per Tier 2</label><input type="number" id="qa-t3-units" class="w-full border-2 border-blue-300 rounded-lg px-2 py-1 text-sm font-bold" value="1"></div>
                 <div class="grid grid-cols-3 gap-2">
                     <div><label class="block text-[10px] font-semibold">Cost</label><input type="number" id="qa-t3-cp" class="w-full border rounded-lg px-2 py-1 text-sm" value="0"></div>
@@ -96,7 +98,6 @@
                 </div>
             </div>
         </div>
-
     </div>
 </div>
 
