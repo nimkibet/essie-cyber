@@ -554,7 +554,7 @@ window.openEditWizard = async (id) => {
                     </div>
                     <div><label class="block text-xs font-semibold mb-1">Cost Price</label><input type="number" id="wiz-t1-cp" class="w-full border rounded-lg px-3 py-2 text-sm" value="${t1.buying_price||0}"></div>
                     <div><label class="block text-xs font-semibold mb-1">Sell Price</label><input type="number" id="wiz-t1-sp" class="w-full border rounded-lg px-3 py-2 text-sm" value="${t1.selling_price||0}"></div>
-                    <div><label class="block text-xs font-semibold mb-1">Initial Stock (Boxes/Bulk)</label><input type="number" id="wiz-t1-stock" class="w-full border rounded-lg px-3 py-2 text-sm" value="${t1.stock_quantity||0}"></div>
+                    <div><label class="block text-xs font-semibold mb-1">Initial Stock (Pieces)</label><input type="number" id="wiz-t1-stock" class="w-full border rounded-lg px-3 py-2 text-sm" value="${t1.stock_quantity||0}"></div>
                 </div>
             </div>
 
