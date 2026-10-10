@@ -144,54 +144,278 @@ window.del = (id, name) => {
 };
 
 document.getElementById('btn-add-item').addEventListener('click', () => {
-    showModal('Add New Item / Service', `
-        <div class="space-y-3">
-            <div>
-                <label class="block text-sm font-semibold mb-1">Name</label>
-                <input type="text" id="add-name" class="w-full border rounded px-3 py-2">
-            </div>
-            <div class="flex gap-4">
-                <div class="flex-1">
-                    <label class="block text-sm font-semibold mb-1">Type</label>
-                    <select id="add-type" class="w-full border rounded px-3 py-2">
-                        <option value="fixed">Fixed Price</option>
-                        <option value="variable">Variable Price</option>
-                    </select>
-                </div>
-                <div class="flex items-center pt-6">
-                    <input type="checkbox" id="add-is-service" class="mr-2 h-4 w-4">
-                    <label class="text-sm font-semibold">Is Service?</label>
-                </div>
-            </div>
-            <div class="flex gap-4">
-                <div class="flex-1">
-                    <label class="block text-sm font-semibold mb-1">Buying Price</label>
-                    <input type="number" id="add-bp" class="w-full border rounded px-3 py-2" value="0">
-                </div>
-                <div class="flex-1">
-                    <label class="block text-sm font-semibold mb-1">Selling Price</label>
-                    <input type="number" id="add-sp" class="w-full border rounded px-3 py-2" value="0">
+    showModal('Single-Screen Packaging Wizard', `
+        <div class="space-y-4 max-h-[70vh] overflow-y-auto pr-2" id="pkg-wizard-form">
+            <!-- Section 1: Core Info -->
+            <div class="p-4 bg-slate-50 border border-slate-200 rounded-xl">
+                <h3 class="text-sm font-bold text-slate-800 mb-3 uppercase tracking-wide">1. Core Product Info</h3>
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="col-span-2">
+                        <label class="block text-xs font-semibold mb-1">Base Name (e.g. A4 Paper)</label>
+                        <input type="text" id="wiz-name" class="w-full border rounded-lg px-3 py-2 text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold mb-1">Type</label>
+                        <select id="wiz-type" class="w-full border rounded-lg px-3 py-2 text-sm">
+                            <option value="fixed">Fixed Price</option>
+                            <option value="variable">Variable Price</option>
+                        </select>
+                    </div>
+                    <div class="flex items-center pt-5">
+                        <input type="checkbox" id="wiz-is-service" class="mr-2 h-4 w-4">
+                        <label class="text-xs font-semibold">Is Service (No Stock)</label>
+                    </div>
                 </div>
             </div>
-            <div>
-                <label class="block text-sm font-semibold mb-1">Initial Stock (If Product)</label>
-                <input type="number" id="add-stock" class="w-full border rounded px-3 py-2" value="0">
+
+            <!-- Section 2: Tier 1 Base Unit -->
+            <div class="p-4 bg-blue-50 border border-blue-100 rounded-xl">
+                <h3 class="text-sm font-bold text-blue-800 mb-3 uppercase tracking-wide">2. Tier 1: Base Retail Unit (e.g. Single Sheet)</h3>
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    <div class="col-span-2 md:col-span-4">
+                        <label class="block text-xs font-semibold mb-1">Unit Modifier Name (Optional, e.g. "Sheet")</label>
+                        <input type="text" id="wiz-t1-mod" class="w-full border rounded-lg px-3 py-2 text-sm placeholder-slate-400" placeholder="e.g. Sheet">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold mb-1">Barcode</label>
+                        <input type="text" id="wiz-t1-bc" class="w-full border rounded-lg px-3 py-2 text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold mb-1">Cost Price</label>
+                        <input type="number" id="wiz-t1-cp" class="w-full border rounded-lg px-3 py-2 text-sm" value="0">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold mb-1">Sell Price</label>
+                        <input type="number" id="wiz-t1-sp" class="w-full border rounded-lg px-3 py-2 text-sm" value="0">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold mb-1">Initial Stock</label>
+                        <input type="number" id="wiz-t1-stock" class="w-full border rounded-lg px-3 py-2 text-sm" value="0">
+                    </div>
+                </div>
             </div>
+
+            <!-- Section 3: Tier 2 Packet/Ream -->
+            <div class="p-4 bg-slate-50 border border-slate-200 rounded-xl">
+                <div class="flex items-center justify-between mb-3">
+                    <h3 class="text-sm font-bold text-slate-800 uppercase tracking-wide">3. Tier 2: Packet / Ream</h3>
+                    <div class="flex items-center">
+                        <input type="checkbox" id="wiz-t2-en" class="mr-2 h-4 w-4 text-blue-600 rounded" onchange="document.getElementById('t2-body').classList.toggle('hidden', !this.checked)">
+                        <label class="text-xs font-bold text-blue-600">Enable Tier 2</label>
+                    </div>
+                </div>
+                <div id="t2-body" class="hidden grid grid-cols-2 md:grid-cols-5 gap-3">
+                    <div class="col-span-2 md:col-span-5">
+                        <label class="block text-xs font-semibold mb-1">Unit Modifier Name (e.g. "Ream")</label>
+                        <input type="text" id="wiz-t2-mod" class="w-full border rounded-lg px-3 py-2 text-sm" placeholder="e.g. Ream">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-blue-700 mb-1">Units per Packet</label>
+                        <input type="number" id="wiz-t2-units" class="w-full border-2 border-blue-300 rounded-lg px-3 py-2 text-sm font-bold" placeholder="e.g. 500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold mb-1">Barcode</label>
+                        <input type="text" id="wiz-t2-bc" class="w-full border rounded-lg px-3 py-2 text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold mb-1">Cost Price</label>
+                        <input type="number" id="wiz-t2-cp" class="w-full border rounded-lg px-3 py-2 text-sm" value="0">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold mb-1">Sell Price</label>
+                        <input type="number" id="wiz-t2-sp" class="w-full border rounded-lg px-3 py-2 text-sm" value="0">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold mb-1">Bulk Stock</label>
+                        <input type="number" id="wiz-t2-stock" class="w-full border rounded-lg px-3 py-2 text-sm" value="0">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Section 4: Tier 3 Box -->
+            <div class="p-4 bg-slate-50 border border-slate-200 rounded-xl">
+                <div class="flex items-center justify-between mb-3">
+                    <h3 class="text-sm font-bold text-slate-800 uppercase tracking-wide">4. Tier 3: Box</h3>
+                    <div class="flex items-center">
+                        <input type="checkbox" id="wiz-t3-en" class="mr-2 h-4 w-4 text-blue-600 rounded" onchange="document.getElementById('t3-body').classList.toggle('hidden', !this.checked)">
+                        <label class="text-xs font-bold text-blue-600">Enable Tier 3</label>
+                    </div>
+                </div>
+                <div id="t3-body" class="hidden grid grid-cols-2 md:grid-cols-5 gap-3">
+                    <div class="col-span-2 md:col-span-5">
+                        <label class="block text-xs font-semibold mb-1">Unit Modifier Name (e.g. "Box")</label>
+                        <input type="text" id="wiz-t3-mod" class="w-full border rounded-lg px-3 py-2 text-sm" placeholder="e.g. Box">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-blue-700 mb-1">Packets per Box</label>
+                        <input type="number" id="wiz-t3-units" class="w-full border-2 border-blue-300 rounded-lg px-3 py-2 text-sm font-bold" placeholder="e.g. 5">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold mb-1">Barcode</label>
+                        <input type="text" id="wiz-t3-bc" class="w-full border rounded-lg px-3 py-2 text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold mb-1">Cost Price</label>
+                        <input type="number" id="wiz-t3-cp" class="w-full border rounded-lg px-3 py-2 text-sm" value="0">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold mb-1">Sell Price</label>
+                        <input type="number" id="wiz-t3-sp" class="w-full border rounded-lg px-3 py-2 text-sm" value="0">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold mb-1">Bulk Stock</label>
+                        <input type="number" id="wiz-t3-stock" class="w-full border rounded-lg px-3 py-2 text-sm" value="0">
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Section 5: Tier 4 Carton -->
+            <div class="p-4 bg-slate-50 border border-slate-200 rounded-xl">
+                <div class="flex items-center justify-between mb-3">
+                    <h3 class="text-sm font-bold text-slate-800 uppercase tracking-wide">5. Tier 4: Carton</h3>
+                    <div class="flex items-center">
+                        <input type="checkbox" id="wiz-t4-en" class="mr-2 h-4 w-4 text-blue-600 rounded" onchange="document.getElementById('t4-body').classList.toggle('hidden', !this.checked)">
+                        <label class="text-xs font-bold text-blue-600">Enable Tier 4</label>
+                    </div>
+                </div>
+                <div id="t4-body" class="hidden grid grid-cols-2 md:grid-cols-5 gap-3">
+                    <div class="col-span-2 md:col-span-5">
+                        <label class="block text-xs font-semibold mb-1">Unit Modifier Name (e.g. "Carton")</label>
+                        <input type="text" id="wiz-t4-mod" class="w-full border rounded-lg px-3 py-2 text-sm" placeholder="e.g. Carton">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-blue-700 mb-1">Boxes per Carton</label>
+                        <input type="number" id="wiz-t4-units" class="w-full border-2 border-blue-300 rounded-lg px-3 py-2 text-sm font-bold" placeholder="e.g. 4">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold mb-1">Barcode</label>
+                        <input type="text" id="wiz-t4-bc" class="w-full border rounded-lg px-3 py-2 text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold mb-1">Cost Price</label>
+                        <input type="number" id="wiz-t4-cp" class="w-full border rounded-lg px-3 py-2 text-sm" value="0">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold mb-1">Sell Price</label>
+                        <input type="number" id="wiz-t4-sp" class="w-full border rounded-lg px-3 py-2 text-sm" value="0">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold mb-1">Bulk Stock</label>
+                        <input type="number" id="wiz-t4-stock" class="w-full border rounded-lg px-3 py-2 text-sm" value="0">
+                    </div>
+                </div>
+            </div>
+
         </div>
     `, async (close) => {
-        const payload = {
-            name: document.getElementById('add-name').value,
-            type: document.getElementById('add-type').value,
-            is_service: document.getElementById('add-is-service').checked,
-            buying_price: parseFloat(document.getElementById('add-bp').value||0),
-            selling_price: parseFloat(document.getElementById('add-sp').value||0),
-            stock_quantity: parseInt(document.getElementById('add-stock').value||0)
-        };
-        if(!payload.name) throw new Error("Name is required");
-        await supabase.from('inventory').insert([payload]);
-        close(); load();
-    }, 'Save Item');
+        const baseName = document.getElementById('wiz-name').value;
+        if (!baseName) {
+            alert("Base Name is required.");
+            return;
+        }
+
+        const type = document.getElementById('wiz-type').value;
+        const isService = document.getElementById('wiz-is-service').checked;
+
+        // Build tiers top-down
+        const tiers = [];
+        
+        // Helper to construct item name
+        const getName = (mod) => mod ? `${baseName} (${mod})` : baseName;
+
+        // Tier 4
+        if (document.getElementById('wiz-t4-en').checked) {
+            tiers.push({
+                level: 4,
+                name: getName(document.getElementById('wiz-t4-mod').value),
+                type, is_service: isService, tier_level: 4,
+                barcode: document.getElementById('wiz-t4-bc').value,
+                buying_price: parseFloat(document.getElementById('wiz-t4-cp').value||0),
+                selling_price: parseFloat(document.getElementById('wiz-t4-sp').value||0),
+                stock_quantity: parseInt(document.getElementById('wiz-t4-stock').value||0),
+                units_per_parent: 1, // Top level has no parent
+                _my_units: parseInt(document.getElementById('wiz-t4-units').value||1)
+            });
+        }
+
+        // Tier 3
+        if (document.getElementById('wiz-t3-en').checked) {
+            tiers.push({
+                level: 3,
+                name: getName(document.getElementById('wiz-t3-mod').value),
+                type, is_service: isService, tier_level: 3,
+                barcode: document.getElementById('wiz-t3-bc').value,
+                buying_price: parseFloat(document.getElementById('wiz-t3-cp').value||0),
+                selling_price: parseFloat(document.getElementById('wiz-t3-sp').value||0),
+                stock_quantity: parseInt(document.getElementById('wiz-t3-stock').value||0),
+                _my_units: parseInt(document.getElementById('wiz-t3-units').value||1)
+            });
+        }
+
+        // Tier 2
+        if (document.getElementById('wiz-t2-en').checked) {
+            tiers.push({
+                level: 2,
+                name: getName(document.getElementById('wiz-t2-mod').value),
+                type, is_service: isService, tier_level: 2,
+                barcode: document.getElementById('wiz-t2-bc').value,
+                buying_price: parseFloat(document.getElementById('wiz-t2-cp').value||0),
+                selling_price: parseFloat(document.getElementById('wiz-t2-sp').value||0),
+                stock_quantity: parseInt(document.getElementById('wiz-t2-stock').value||0),
+                _my_units: parseInt(document.getElementById('wiz-t2-units').value||1)
+            });
+        }
+
+        // Tier 1 (Always added)
+        tiers.push({
+            level: 1,
+            name: getName(document.getElementById('wiz-t1-mod').value),
+            type, is_service: isService, tier_level: 1,
+            barcode: document.getElementById('wiz-t1-bc').value,
+            buying_price: parseFloat(document.getElementById('wiz-t1-cp').value||0),
+            selling_price: parseFloat(document.getElementById('wiz-t1-sp').value||0),
+            stock_quantity: parseInt(document.getElementById('wiz-t1-stock').value||0)
+        });
+
+        // Insert sequentially to link parent_ids properly
+        let lastParentId = null;
+        for (let i = 0; i < tiers.length; i++) {
+            const t = tiers[i];
+            
+            const payload = {
+                name: t.name,
+                type: t.type,
+                is_service: t.is_service,
+                tier_level: t.tier_level,
+                barcode: t.barcode,
+                buying_price: t.buying_price,
+                selling_price: t.selling_price,
+                stock_quantity: t.stock_quantity,
+                parent_id: lastParentId
+            };
+
+            // Calculate units_per_parent based on previous tier
+            if (i > 0) {
+                // The current tier is a child of the previous tier
+                // So units_per_parent is how many of THIS item fit into the PARENT item
+                payload.units_per_parent = tiers[i-1]._my_units || 1;
+            } else {
+                payload.units_per_parent = 1; // Top-most enabled tier
+            }
+
+            const { data, error } = await supabase.from('inventory').insert([payload]).select().single();
+            if (error) {
+                alert("Error saving tier " + t.level + ": " + error.message);
+                return; // Stop execution on error
+            }
+            lastParentId = data.id; // Pass ID down to next child
+        }
+
+        close();
+        load();
+    }, 'Save Packaging Hierarchy');
 });
+
 
 load();
 document.getElementById('inv-search').addEventListener('input', renderTable);
