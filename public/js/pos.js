@@ -1234,6 +1234,25 @@ window.selectQRes = (id, name, bp) => {
     document.getElementById('qres-item-id').value = id;
     document.getElementById('qres-search').value = name;
     
+    const children = inventory.filter(i => i.parent_id === id);
+    const piecesSidebar = document.getElementById('qres-pieces-sidebar');
+    const piecesContent = document.getElementById('qres-pieces-content');
+    
+    if (piecesSidebar && piecesContent) {
+        if (children.length > 0) {
+            piecesSidebar.classList.remove('hidden');
+            piecesContent.innerHTML = children.map(c => 
+                `<div class="bg-white p-1 rounded border mb-1 flex justify-between items-center text-xs">
+                    <span class="truncate pr-1">${c.name}</span>
+                    <span class="bg-blue-100 text-blue-800 px-1 rounded">${c.units_per_parent || 0}</span>
+                </div>`
+            ).join('');
+        } else {
+            piecesSidebar.classList.add('hidden');
+            piecesContent.innerHTML = '';
+        }
+    }
+    
     qresResults.classList.add('hidden');
 };
 
@@ -1249,7 +1268,6 @@ document.getElementById('btn-open-resource').addEventListener('click', async () 
     const name = document.getElementById('qres-search').value;
     if (!itemId || qty < 1) return alert('Select an item and enter quantity.');
     
-    // Retrieve buying price automatically
     const selectedItem = inventory.find(i => i.id === itemId);
     const costPerUnit = selectedItem ? selectedItem.buying_price : 0;
     
@@ -1260,7 +1278,6 @@ document.getElementById('btn-open-resource').addEventListener('click', async () 
             throw new Error("You must be online to open a bulk resource right now.");
         }
 
-        // Auto-exhaust any currently active resource with the same name
         await supabase.from('resources')
             .update({ status: 'exhausted' })
             .eq('name', name)
@@ -1275,6 +1292,29 @@ document.getElementById('btn-open-resource').addEventListener('click', async () 
             opened_by: currentUser.id
         }]);
         if (error) throw error;
+        
+        if (selectedItem) {
+            const newParentStock = selectedItem.stock_quantity - qty;
+            const { error: pErr } = await supabase.from('inventory')
+                .update({ stock_quantity: newParentStock })
+                .eq('id', itemId);
+            if (pErr) throw pErr;
+            
+            const children = inventory.filter(i => i.parent_id === itemId);
+            for (const child of children) {
+                const addQty = qty * (child.units_per_parent || 1);
+                const newChildStock = child.stock_quantity + addQty;
+                const { error: cErr } = await supabase.from('inventory')
+                    .update({ stock_quantity: newChildStock })
+                    .eq('id', child.id);
+                if (cErr) throw cErr;
+            }
+            
+            if (typeof loadInventory === 'function') {
+                await loadInventory();
+            }
+        }
+        
         document.getElementById('qres-search').value = '';
         document.getElementById('qres-item-id').value = '';
         document.getElementById('qres-qty').value = 1;
@@ -1574,3 +1614,195 @@ if (btnDebtCart) {
         }
     });
 }
+
+// --- TIERED PRODUCT DRAWER LOGIC ---
+const drawerOverlay = document.getElementById('drawer-overlay');
+const quickAddDrawer = document.getElementById('quick-add-drawer');
+
+document.getElementById('btn-open-drawer').addEventListener('click', () => {
+    drawerOverlay.classList.remove('hidden');
+    // slight delay to allow display block to apply before transform
+    setTimeout(() => {
+        quickAddDrawer.classList.remove('translate-x-full');
+    }, 10);
+});
+
+document.getElementById('btn-close-drawer').addEventListener('click', () => {
+    quickAddDrawer.classList.add('translate-x-full');
+    setTimeout(() => {
+        drawerOverlay.classList.add('hidden');
+    }, 300);
+});
+
+drawerOverlay.addEventListener('click', () => {
+    document.getElementById('btn-close-drawer').click();
+});
+
+// Search and Drag Logic for Drawer
+const drawerSearch = document.getElementById('drawer-search-products');
+const drawerList = document.getElementById('drawer-products-list');
+let drawerDraggedItem = null;
+
+function renderDrawerProducts() {
+    const term = drawerSearch.value.toLowerCase();
+    const matches = inventory.filter(i => i.name.toLowerCase().includes(term));
+    drawerList.innerHTML = matches.slice(0, 15).map(i => 
+        <div class="p-2 bg-white border border-slate-200 rounded cursor-grab hover:border-blue-400 shadow-sm flex justify-between items-center text-xs" 
+             draggable="true" ondragstart="drawerDragStart(event, ' + i.id + ')">
+            <div>
+                <div class="font-bold text-slate-800"> + i.name + </div>
+                <div class="text-slate-500">Ksh  + (i.selling_price || 0) + </div>
+            </div>
+        </div>
+    ).join('');
+}
+
+window.drawerDragStart = (e, id) => {
+    drawerDraggedItem = inventory.find(i => i.id === id);
+    e.dataTransfer.setData('text/plain', id);
+};
+
+drawerSearch.addEventListener('input', renderDrawerProducts);
+// Render once when opened
+document.getElementById('btn-open-drawer').addEventListener('click', renderDrawerProducts);
+
+let drawerLinkedTiers = { 1: null, 2: null, 3: null };
+
+function setupDrawerDropzone(tierNum) {
+    const section = document.getElementById('dqa-section-' + tierNum);
+    section.addEventListener('dragover', e => { e.preventDefault(); section.classList.add('bg-blue-100', 'border-blue-400'); });
+    section.addEventListener('dragleave', e => { section.classList.remove('bg-blue-100', 'border-blue-400'); });
+    section.addEventListener('drop', e => {
+        e.preventDefault();
+        section.classList.remove('bg-blue-100', 'border-blue-400');
+        if (!drawerDraggedItem) return;
+
+        drawerLinkedTiers[tierNum] = drawerDraggedItem;
+        
+        document.getElementById('dqa-t' + tierNum + '-name').value = drawerDraggedItem.name;
+        document.getElementById('dqa-t' + tierNum + '-cp').value = drawerDraggedItem.buying_price || 0;
+        document.getElementById('dqa-t' + tierNum + '-sp').value = drawerDraggedItem.selling_price || 0;
+        document.getElementById('dqa-t' + tierNum + '-stock').value = drawerDraggedItem.stock_quantity || 0;
+        
+        document.getElementById('dqa-linked-badge-' + tierNum).classList.remove('hidden');
+        
+        if (tierNum === 2) {
+            document.getElementById('dqa-t2-en').checked = true;
+            document.getElementById('dqa-t2-en').dispatchEvent(new Event('change'));
+        }
+        if (tierNum === 3) {
+            document.getElementById('dqa-t3-en').checked = true;
+            document.getElementById('dqa-t3-en').dispatchEvent(new Event('change'));
+        }
+    });
+}
+
+setupDrawerDropzone(1);
+setupDrawerDropzone(2);
+setupDrawerDropzone(3);
+
+document.getElementById('btn-drawer-quick-add').addEventListener('click', async () => {
+    const t1Name = document.getElementById('dqa-t1-name').value;
+    if (!t1Name) { alert("Tier 1 Name is required."); return; }
+
+    const type = document.getElementById('dqa-type').value;
+    const isService = document.getElementById('dqa-svc').checked;
+    const btn = document.getElementById('btn-drawer-quick-add');
+    btn.innerHTML = 'Saving...'; btn.disabled = true;
+
+    const tiers = [];
+    
+    if (document.getElementById('dqa-t3-en').checked) {
+        tiers.push({
+            level: 3, name: document.getElementById('dqa-t3-name').value,
+            type, is_service: isService, tier_level: 3,
+            buying_price: parseFloat(document.getElementById('dqa-t3-cp').value||0),
+            selling_price: parseFloat(document.getElementById('dqa-t3-sp').value||0),
+            stock_quantity: parseInt(document.getElementById('dqa-t3-stock').value||0),
+            units_per_parent: 1, _my_units: parseInt(document.getElementById('dqa-t3-units').value||1),
+            _linked_product: drawerLinkedTiers[3]
+        });
+    }
+    if (document.getElementById('dqa-t2-en').checked) {
+        tiers.push({
+            level: 2, name: document.getElementById('dqa-t2-name').value,
+            type, is_service: isService, tier_level: 2,
+            buying_price: parseFloat(document.getElementById('dqa-t2-cp').value||0),
+            selling_price: parseFloat(document.getElementById('dqa-t2-sp').value||0),
+            stock_quantity: parseInt(document.getElementById('dqa-t2-stock').value||0),
+            _my_units: parseInt(document.getElementById('dqa-t2-units').value||1),
+            _linked_product: drawerLinkedTiers[2]
+        });
+    }
+    tiers.push({
+        level: 1, name: t1Name,
+        type, is_service: isService, tier_level: 1,
+        buying_price: parseFloat(document.getElementById('dqa-t1-cp').value||0),
+        selling_price: parseFloat(document.getElementById('dqa-t1-sp').value||0),
+        stock_quantity: parseInt(document.getElementById('dqa-t1-stock').value||0),
+        _linked_product: drawerLinkedTiers[1]
+    });
+
+    let lastParentId = null;
+    try {
+        for (let i = 0; i < tiers.length; i++) {
+            const t = tiers[i];
+            const payload = {
+                name: t.name, type: t.type, is_service: t.is_service,
+                tier_level: t.tier_level, buying_price: t.buying_price,
+                selling_price: t.selling_price, stock_quantity: t.stock_quantity,
+                parent_id: lastParentId
+            };
+            if (i > 0) payload.units_per_parent = tiers[i-1]._my_units || 1;
+            else payload.units_per_parent = 1;
+
+            if (t._linked_product) {
+                const { error } = await supabase.from('inventory').update({
+                    parent_id: payload.parent_id,
+                    units_per_parent: payload.units_per_parent,
+                    name: payload.name,
+                    buying_price: payload.buying_price,
+                    selling_price: payload.selling_price,
+                    stock_quantity: payload.stock_quantity
+                }).eq('id', t._linked_product.id);
+                if (error) throw new Error("Error linking tier " + t.level + ": " + error.message);
+                lastParentId = t._linked_product.id;
+                
+                // Update local cache
+                const idx = inventory.findIndex(inv => inv.id === t._linked_product.id);
+                if(idx >= 0) inventory[idx] = { ...inventory[idx], ...payload };
+            } else {
+                const { data, error } = await supabase.from('inventory').insert([payload]).select().single();
+                if (error) throw new Error("Error saving tier " + t.level + ": " + error.message);
+                lastParentId = data.id;
+                inventory.push(data);
+            }
+        }
+
+        // Reset form
+        document.querySelectorAll('#drawer-quick-add-form input[type="text"]').forEach(el => el.value = '');
+        document.querySelectorAll('#drawer-quick-add-form input[type="number"]').forEach(el => el.value = '0');
+        document.querySelectorAll('#drawer-quick-add-form input[type="checkbox"]').forEach(el => { el.checked = false; el.dispatchEvent(new Event('change')); });
+        document.getElementById('dqa-t2-units').value = '1';
+        document.getElementById('dqa-t3-units').value = '1';
+        
+        drawerLinkedTiers = { 1: null, 2: null, 3: null };
+        document.getElementById('dqa-linked-badge-1').classList.add('hidden');
+        document.getElementById('dqa-linked-badge-2').classList.add('hidden');
+        document.getElementById('dqa-linked-badge-3').classList.add('hidden');
+
+        alert('Products created/linked successfully!');
+        
+        // Re-render UI pieces dependent on inventory
+        inventory.sort((a,b) => a.name.localeCompare(b.name));
+        renderQuickAddButtons();
+        
+        // Close drawer
+        document.getElementById('btn-close-drawer').click();
+
+    } catch (err) {
+        alert(err.message);
+    } finally {
+        btn.innerHTML = 'Save Product'; btn.disabled = false;
+    }
+});

@@ -88,6 +88,13 @@
 
                 <!-- Left: Entry Forms -->
                 <div class="w-full lg:w-5/12 flex flex-col gap-4">
+                    
+                    <div class="flex justify-end">
+                        <button id="btn-open-drawer" class="text-xs font-bold bg-blue-100 text-blue-700 hover:bg-blue-200 px-3 py-1.5 rounded-lg shadow-sm border border-blue-200 flex items-center gap-1 transition">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                            Add New Product (Tiered)
+                        </button>
+                    </div>
 
                     <!-- Quick Add — Feature 3: buttons rendered dynamically from inventory.is_quick_add=true -->
                     <div class="bg-white rounded-xl shadow border border-gray-200 p-5">
@@ -244,13 +251,22 @@
                                 <button id="btn-log-expense" class="w-full bg-slate-700 hover:bg-slate-800 text-white py-1.5 rounded text-sm font-bold mt-auto">Log Expense</button>
                             </div>
                             <!-- Quick Resource Opener -->
-                            <div class="border border-slate-200 rounded-lg p-3 bg-slate-50">
+                            <div class="border border-slate-200 rounded-lg p-3 bg-slate-50 relative">
                                 <div class="text-xs font-bold text-slate-600 mb-2">Open Resource</div>
                                 <div class="relative mb-2">
                                     <input type="text" id="qres-search" placeholder="Search item (e.g. A4 Paper)..." class="w-full border border-slate-200 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-blue-400" autocomplete="off">
                                     <div id="qres-results" class="absolute z-20 w-full bg-white border border-gray-200 mt-1 rounded-md shadow-lg hidden max-h-40 overflow-y-auto"></div>
                                     <input type="hidden" id="qres-item-id">
                                 </div>
+                                
+                                <!-- Pieces Indicator Sidebar -->
+                                <div id="qres-pieces-sidebar" class="hidden absolute right-[-140px] top-0 w-[130px] bg-blue-50 border border-blue-200 p-2 rounded-lg shadow-sm">
+                                    <div class="text-[10px] font-bold text-blue-800 uppercase mb-1">Contains</div>
+                                    <div id="qres-pieces-content" class="text-xs text-slate-700 font-semibold leading-tight">
+                                        <!-- Populated via JS -->
+                                    </div>
+                                </div>
+
                                 <input type="number" id="qres-qty" placeholder="Qty opened" value="1" class="w-full border border-slate-200 rounded px-2 py-1.5 text-sm mb-2 focus:outline-none focus:ring-1 focus:ring-blue-400">
                                 <button id="btn-open-resource" class="w-full bg-slate-700 hover:bg-slate-800 text-white py-1.5 rounded text-sm font-bold">Open Resource</button>
                             </div>
@@ -312,6 +328,117 @@
             <div class="flex gap-2 mt-5">
                 <button id="btn-save-new-cust" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 rounded text-sm transition">Save Customer</button>
                 <button id="btn-cancel-new-cust" class="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2 rounded text-sm transition">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Drawer Overlay -->
+    <div id="drawer-overlay" class="fixed inset-0 bg-slate-900/50 z-[60] hidden transition-opacity"></div>
+    
+    <!-- Right Drawer: Quick Add Tiered Product -->
+    <div id="quick-add-drawer" class="fixed top-0 right-0 h-full w-full sm:w-[500px] bg-slate-100 shadow-2xl z-[70] transform translate-x-full transition-transform duration-300 flex flex-col border-l border-slate-300">
+        <div class="bg-slate-900 text-white p-4 flex justify-between items-center shadow-md z-10">
+            <h2 class="font-bold text-lg text-blue-400">Add Tiered Product</h2>
+            <button id="btn-close-drawer" class="text-gray-300 hover:text-white font-bold text-xl leading-none">&times;</button>
+        </div>
+        
+        <div class="flex-1 overflow-y-auto p-4 flex flex-col gap-4 relative">
+            <!-- Search Existing to Drag -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-3">
+                <h3 class="text-xs font-bold text-slate-700 mb-2">1. Search to Link (Drag & Drop)</h3>
+                <input type="text" id="drawer-search-products" placeholder="Search existing product..." class="w-full px-3 py-2 border rounded-lg text-sm mb-2 focus:ring-1 focus:ring-blue-500 outline-none">
+                <div id="drawer-products-list" class="max-h-32 overflow-y-auto border border-slate-100 rounded-lg p-1 bg-slate-50 space-y-1">
+                    <!-- Loaded dynamically -->
+                </div>
+            </div>
+
+            <!-- The Tier Forms -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-3 flex-1 overflow-y-auto">
+                <div class="flex justify-between items-center mb-3">
+                    <h3 class="text-xs font-bold text-slate-700">2. Drop into Tiers</h3>
+                    <button id="btn-drawer-quick-add" class="px-3 py-1 bg-blue-600 text-white font-bold rounded-lg text-xs shadow-md hover:bg-blue-700 transition">Save Product</button>
+                </div>
+                
+                <div class="space-y-4" id="drawer-quick-add-form">
+                    <!-- TIER 1 -->
+                    <div class="p-3 bg-blue-50 border border-blue-200 rounded-xl transition-colors" id="dqa-section-1">
+                        <div class="flex justify-between items-center mb-2">
+                            <h3 class="text-[11px] font-bold text-blue-800 uppercase">Tier 1 (Base Unit)</h3>
+                            <span id="dqa-linked-badge-1" class="hidden px-2 py-0.5 bg-green-100 text-green-700 text-[9px] font-bold rounded-lg border border-green-200">Linked</span>
+                        </div>
+                        <div class="space-y-2">
+                            <div><label class="block text-[10px] font-semibold">Name (e.g. A4 Paper Sheet)</label><input type="text" id="dqa-t1-name" class="w-full border border-slate-300 rounded px-2 py-1 text-xs"></div>
+                            <div class="flex gap-2">
+                                <div class="flex-1"><label class="block text-[10px] font-semibold">Type</label><select id="dqa-type" class="w-full border border-slate-300 rounded px-2 py-1 text-xs"><option value="fixed">Fixed</option><option value="variable">Variable</option></select></div>
+                                <div class="flex items-center pt-3"><input type="checkbox" id="dqa-svc" class="mr-1 h-3 w-3"><label class="text-[10px] font-semibold">Service</label></div>
+                            </div>
+                            <div>
+                                <label class="block text-[10px] font-bold text-blue-700">Pieces (Base Unit)</label>
+                                <div class="relative">
+                                    <span class="absolute right-2 top-1.5 text-xs text-slate-400">pieces</span>
+                                    <input type="number" class="w-full border-2 border-blue-300 bg-blue-50 rounded px-2 py-1 text-xs font-bold cursor-not-allowed" value="1" disabled>
+                                </div>
+                            </div>
+                            <div class="grid grid-cols-3 gap-2 mt-2">
+                                <div><label class="block text-[9px] font-semibold">Buy (Ksh)</label><input type="number" id="dqa-t1-cp" class="w-full border border-slate-300 rounded px-2 py-1 text-xs" value="0"></div>
+                                <div><label class="block text-[9px] font-semibold">Sell (Ksh)</label><input type="number" id="dqa-t1-sp" class="w-full border border-slate-300 rounded px-2 py-1 text-xs" value="0"></div>
+                                <div><label class="block text-[9px] font-semibold">Stock</label><input type="number" id="dqa-t1-stock" class="w-full border border-slate-300 rounded px-2 py-1 text-xs" value="0"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- TIER 2 -->
+                    <div class="p-3 bg-slate-50 border border-slate-200 rounded-xl transition-colors" id="dqa-section-2">
+                        <div class="flex justify-between items-center mb-2">
+                            <h3 class="text-[11px] font-bold text-slate-800 uppercase">Tier 2</h3>
+                            <div class="flex items-center gap-2">
+                                <span id="dqa-linked-badge-2" class="hidden px-2 py-0.5 bg-green-100 text-green-700 text-[9px] font-bold rounded-lg border border-green-200">Linked</span>
+                                <div class="flex items-center"><input type="checkbox" id="dqa-t2-en" class="mr-1 h-3 w-3" onchange="document.getElementById('dqa-t2-body').classList.toggle('hidden', !this.checked)"><label class="text-[10px] font-bold text-blue-600">Enable</label></div>
+                            </div>
+                        </div>
+                        <div id="dqa-t2-body" class="hidden space-y-2">
+                            <div><label class="block text-[10px] font-semibold">Name (e.g. A4 Ream)</label><input type="text" id="dqa-t2-name" class="w-full border border-slate-300 rounded px-2 py-1 text-xs"></div>
+                            <div>
+                                <label class="block text-[10px] font-bold text-blue-700">Pieces (Units inside)</label>
+                                <div class="relative">
+                                    <span class="absolute right-2 top-1.5 text-xs text-slate-400">pieces</span>
+                                    <input type="number" id="dqa-t2-units" class="w-full border-2 border-blue-300 rounded px-2 py-1 text-xs font-bold" value="1">
+                                </div>
+                            </div>
+                            <div class="grid grid-cols-3 gap-2">
+                                <div><label class="block text-[9px] font-semibold">Buy (Ksh)</label><input type="number" id="dqa-t2-cp" class="w-full border border-slate-300 rounded px-2 py-1 text-xs" value="0"></div>
+                                <div><label class="block text-[9px] font-semibold">Sell (Ksh)</label><input type="number" id="dqa-t2-sp" class="w-full border border-slate-300 rounded px-2 py-1 text-xs" value="0"></div>
+                                <div><label class="block text-[9px] font-semibold">Stock</label><input type="number" id="dqa-t2-stock" class="w-full border border-slate-300 rounded px-2 py-1 text-xs" value="0"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- TIER 3 -->
+                    <div class="p-3 bg-slate-50 border border-slate-200 rounded-xl transition-colors" id="dqa-section-3">
+                        <div class="flex justify-between items-center mb-2">
+                            <h3 class="text-[11px] font-bold text-slate-800 uppercase">Tier 3</h3>
+                            <div class="flex items-center gap-2">
+                                <span id="dqa-linked-badge-3" class="hidden px-2 py-0.5 bg-green-100 text-green-700 text-[9px] font-bold rounded-lg border border-green-200">Linked</span>
+                                <div class="flex items-center"><input type="checkbox" id="dqa-t3-en" class="mr-1 h-3 w-3" onchange="document.getElementById('dqa-t3-body').classList.toggle('hidden', !this.checked)"><label class="text-[10px] font-bold text-blue-600">Enable</label></div>
+                            </div>
+                        </div>
+                        <div id="dqa-t3-body" class="hidden space-y-2">
+                            <div><label class="block text-[10px] font-semibold">Name (e.g. A4 Box)</label><input type="text" id="dqa-t3-name" class="w-full border border-slate-300 rounded px-2 py-1 text-xs"></div>
+                            <div>
+                                <label class="block text-[10px] font-bold text-blue-700">Pieces (Units inside)</label>
+                                <div class="relative">
+                                    <span class="absolute right-2 top-1.5 text-xs text-slate-400">pieces</span>
+                                    <input type="number" id="dqa-t3-units" class="w-full border-2 border-blue-300 rounded px-2 py-1 text-xs font-bold" value="1">
+                                </div>
+                            </div>
+                            <div class="grid grid-cols-3 gap-2">
+                                <div><label class="block text-[9px] font-semibold">Buy (Ksh)</label><input type="number" id="dqa-t3-cp" class="w-full border border-slate-300 rounded px-2 py-1 text-xs" value="0"></div>
+                                <div><label class="block text-[9px] font-semibold">Sell (Ksh)</label><input type="number" id="dqa-t3-sp" class="w-full border border-slate-300 rounded px-2 py-1 text-xs" value="0"></div>
+                                <div><label class="block text-[9px] font-semibold">Stock</label><input type="number" id="dqa-t3-stock" class="w-full border border-slate-300 rounded px-2 py-1 text-xs" value="0"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
