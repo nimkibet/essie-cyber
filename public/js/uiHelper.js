@@ -1,11 +1,11 @@
-export function showModal(title, contentHtml, onConfirm, confirmText = 'Confirm') {
+export function showModal(title, contentHtml, onConfirm, confirmText = 'Confirm', widthClass = 'max-w-md') {
     // Remove existing modal if any
     const existing = document.getElementById('essie-modal');
     if (existing) existing.remove();
 
     const modalHTML = `
         <div id="essie-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm opacity-0 transition-opacity duration-200">
-            <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden transform scale-95 transition-transform duration-200">
+            <div class="bg-white rounded-2xl shadow-2xl w-full ${widthClass} overflow-hidden transform scale-95 transition-transform duration-200">
                 <div class="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
                     <h3 class="text-lg font-bold text-slate-800">${title}</h3>
                     <button id="essie-modal-close" class="text-slate-400 hover:text-slate-600 font-bold text-xl">&times;</button>

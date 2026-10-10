@@ -51,7 +51,7 @@ function renderTable() {
             <td class="py-3 px-4 text-right font-bold text-slate-800">${i.selling_price}</td>
             <td class="py-3 px-4 text-center">${i.is_service ? '-' : i.stock_quantity}</td>
             <td class="py-3 px-4 text-center">
-                <button class="bg-blue-50 hover:bg-blue-100 text-blue-700 px-3 py-1 rounded font-bold text-xs mr-2 transition-colors" onclick="toggleEdit('${i.id}')">Edit</button>
+                <button class="bg-blue-50 hover:bg-blue-100 text-blue-700 px-3 py-1 rounded font-bold text-xs mr-2 transition-colors" onclick="openEditWizard('${i.id}')">Edit</button>
                 <button class="bg-red-50 hover:bg-red-100 text-red-600 px-3 py-1 rounded font-bold text-xs transition-colors" onclick="del('${i.id}', '${i.name.replace(/'/g, "\\'")}')">Delete</button>
             </td>
         </tr>
@@ -89,7 +89,7 @@ function renderTable() {
                             <label class="ml-2 text-sm font-bold text-slate-700">This is a Service (Raw materials tracked via Admin/Resources)</label>
                         </div>
                         <div class="flex gap-2">
-                            <button onclick="toggleEdit('${i.id}')" class="px-4 py-2 bg-white border border-slate-300 rounded-lg text-sm font-bold text-slate-600 hover:bg-slate-50 transition-colors">Cancel</button>
+                            <button onclick="openEditWizard('${i.id}')" class="px-4 py-2 bg-white border border-slate-300 rounded-lg text-sm font-bold text-slate-600 hover:bg-slate-50 transition-colors">Cancel</button>
                             <button onclick="saveEdit('${i.id}')" class="px-4 py-2 bg-blue-600 rounded-lg text-sm font-bold text-white hover:bg-blue-700 transition-colors shadow-md shadow-blue-600/20">Save Changes</button>
                         </div>
                     </div>
@@ -176,10 +176,7 @@ document.getElementById('btn-add-item').addEventListener('click', () => {
                         <label class="block text-xs font-semibold mb-1">Unit Modifier Name (Optional, e.g. "Sheet")</label>
                         <input type="text" id="wiz-t1-mod" class="w-full border rounded-lg px-3 py-2 text-sm placeholder-slate-400" placeholder="e.g. Sheet">
                     </div>
-                    <div>
-                        <label class="block text-xs font-semibold mb-1">Barcode</label>
-                        <input type="text" id="wiz-t1-bc" class="w-full border rounded-lg px-3 py-2 text-sm">
-                    </div>
+                    
                     <div>
                         <label class="block text-xs font-semibold mb-1">Cost Price</label>
                         <input type="number" id="wiz-t1-cp" class="w-full border rounded-lg px-3 py-2 text-sm" value="0">
@@ -213,10 +210,7 @@ document.getElementById('btn-add-item').addEventListener('click', () => {
                         <label class="block text-xs font-bold text-blue-700 mb-1">Units per Packet</label>
                         <input type="number" id="wiz-t2-units" class="w-full border-2 border-blue-300 rounded-lg px-3 py-2 text-sm font-bold" placeholder="e.g. 500">
                     </div>
-                    <div>
-                        <label class="block text-xs font-semibold mb-1">Barcode</label>
-                        <input type="text" id="wiz-t2-bc" class="w-full border rounded-lg px-3 py-2 text-sm">
-                    </div>
+                    
                     <div>
                         <label class="block text-xs font-semibold mb-1">Cost Price</label>
                         <input type="number" id="wiz-t2-cp" class="w-full border rounded-lg px-3 py-2 text-sm" value="0">
@@ -250,10 +244,7 @@ document.getElementById('btn-add-item').addEventListener('click', () => {
                         <label class="block text-xs font-bold text-blue-700 mb-1">Packets per Box</label>
                         <input type="number" id="wiz-t3-units" class="w-full border-2 border-blue-300 rounded-lg px-3 py-2 text-sm font-bold" placeholder="e.g. 5">
                     </div>
-                    <div>
-                        <label class="block text-xs font-semibold mb-1">Barcode</label>
-                        <input type="text" id="wiz-t3-bc" class="w-full border rounded-lg px-3 py-2 text-sm">
-                    </div>
+                    
                     <div>
                         <label class="block text-xs font-semibold mb-1">Cost Price</label>
                         <input type="number" id="wiz-t3-cp" class="w-full border rounded-lg px-3 py-2 text-sm" value="0">
@@ -287,10 +278,7 @@ document.getElementById('btn-add-item').addEventListener('click', () => {
                         <label class="block text-xs font-bold text-blue-700 mb-1">Boxes per Carton</label>
                         <input type="number" id="wiz-t4-units" class="w-full border-2 border-blue-300 rounded-lg px-3 py-2 text-sm font-bold" placeholder="e.g. 4">
                     </div>
-                    <div>
-                        <label class="block text-xs font-semibold mb-1">Barcode</label>
-                        <input type="text" id="wiz-t4-bc" class="w-full border rounded-lg px-3 py-2 text-sm">
-                    </div>
+                    
                     <div>
                         <label class="block text-xs font-semibold mb-1">Cost Price</label>
                         <input type="number" id="wiz-t4-cp" class="w-full border rounded-lg px-3 py-2 text-sm" value="0">
@@ -329,7 +317,7 @@ document.getElementById('btn-add-item').addEventListener('click', () => {
                 level: 4,
                 name: getName(document.getElementById('wiz-t4-mod').value),
                 type, is_service: isService, tier_level: 4,
-                barcode: document.getElementById('wiz-t4-bc').value,
+                
                 buying_price: parseFloat(document.getElementById('wiz-t4-cp').value||0),
                 selling_price: parseFloat(document.getElementById('wiz-t4-sp').value||0),
                 stock_quantity: parseInt(document.getElementById('wiz-t4-stock').value||0),
@@ -344,7 +332,7 @@ document.getElementById('btn-add-item').addEventListener('click', () => {
                 level: 3,
                 name: getName(document.getElementById('wiz-t3-mod').value),
                 type, is_service: isService, tier_level: 3,
-                barcode: document.getElementById('wiz-t3-bc').value,
+                
                 buying_price: parseFloat(document.getElementById('wiz-t3-cp').value||0),
                 selling_price: parseFloat(document.getElementById('wiz-t3-sp').value||0),
                 stock_quantity: parseInt(document.getElementById('wiz-t3-stock').value||0),
@@ -358,7 +346,7 @@ document.getElementById('btn-add-item').addEventListener('click', () => {
                 level: 2,
                 name: getName(document.getElementById('wiz-t2-mod').value),
                 type, is_service: isService, tier_level: 2,
-                barcode: document.getElementById('wiz-t2-bc').value,
+                
                 buying_price: parseFloat(document.getElementById('wiz-t2-cp').value||0),
                 selling_price: parseFloat(document.getElementById('wiz-t2-sp').value||0),
                 stock_quantity: parseInt(document.getElementById('wiz-t2-stock').value||0),
@@ -371,7 +359,7 @@ document.getElementById('btn-add-item').addEventListener('click', () => {
             level: 1,
             name: getName(document.getElementById('wiz-t1-mod').value),
             type, is_service: isService, tier_level: 1,
-            barcode: document.getElementById('wiz-t1-bc').value,
+            
             buying_price: parseFloat(document.getElementById('wiz-t1-cp').value||0),
             selling_price: parseFloat(document.getElementById('wiz-t1-sp').value||0),
             stock_quantity: parseInt(document.getElementById('wiz-t1-stock').value||0)
@@ -387,7 +375,7 @@ document.getElementById('btn-add-item').addEventListener('click', () => {
                 type: t.type,
                 is_service: t.is_service,
                 tier_level: t.tier_level,
-                barcode: t.barcode,
+                
                 buying_price: t.buying_price,
                 selling_price: t.selling_price,
                 stock_quantity: t.stock_quantity,
@@ -413,7 +401,7 @@ document.getElementById('btn-add-item').addEventListener('click', () => {
 
         close();
         load();
-    }, 'Save Packaging Hierarchy');
+    }, 'Save Packaging Hierarchy', 'max-w-4xl');
 });
 
 
@@ -477,3 +465,140 @@ document.getElementById('btn-export-excel').addEventListener('click', async () =
         btn.disabled = false;
     }
 });
+
+window.openEditWizard = async (id) => {
+    // 1. Find the item to see its name and parent_id
+    const selected = inventory.find(i => i.id === id);
+    if (!selected) return;
+
+    // 2. Fetch the entire family tree. We fetch everything to reconstruct the tree locally easily
+    const { data: allItems } = await supabase.from('inventory').select('*');
+    
+    // Find the absolute root
+    let root = selected;
+    while(root.parent_id) {
+        const p = allItems.find(i => i.id === root.parent_id);
+        if(p) root = p; else break; // safety
+    }
+
+    // Now gather descendants linearly (Tier 4 down to Tier 1)
+    // Actually, root is the top level (e.g. Carton). Let's trace down.
+    let current = root;
+    let family = [current];
+    while(true) {
+        const child = allItems.find(i => i.parent_id === current.id);
+        if(child) {
+            family.push(child);
+            current = child;
+        } else {
+            break;
+        }
+    }
+
+    // Now family array has the items from Top Tier to Base Tier.
+    // We reverse it to map to Tier 1, 2, 3, 4 where Tier 1 is Base
+    family.reverse();
+
+    const t1 = family[0] || {};
+    const t2 = family[1] || null;
+    const t3 = family[2] || null;
+    const t4 = family[3] || null;
+
+    // We reuse the showModal HTML but pre-fill it!
+    showModal('Edit Packaging Hierarchy', `
+        <div class="space-y-4 max-h-[70vh] overflow-y-auto pr-2" id="pkg-wizard-form">
+            <!-- Section 1: Core Info -->
+            <div class="p-4 bg-slate-50 border border-slate-200 rounded-xl">
+                <h3 class="text-sm font-bold text-slate-800 mb-3 uppercase tracking-wide">1. Core Product Info</h3>
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="col-span-2">
+                        <label class="block text-xs font-semibold mb-1">Base Name</label>
+                        <input type="text" id="wiz-name" class="w-full border rounded-lg px-3 py-2 text-sm" value="${t1.name?.split(' (')[0] || ''}">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold mb-1">Type</label>
+                        <select id="wiz-type" class="w-full border rounded-lg px-3 py-2 text-sm">
+                            <option value="fixed" ${t1.type === 'fixed' ? 'selected' : ''}>Fixed Price</option>
+                            <option value="variable" ${t1.type === 'variable' ? 'selected' : ''}>Variable Price</option>
+                        </select>
+                    </div>
+                    <div class="flex items-center pt-5">
+                        <input type="checkbox" id="wiz-is-service" class="mr-2 h-4 w-4" ${t1.is_service ? 'checked' : ''}>
+                        <label class="text-xs font-semibold">Is Service</label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tier 1 -->
+            <div class="p-4 bg-blue-50 border border-blue-100 rounded-xl">
+                <h3 class="text-sm font-bold text-blue-800 mb-3 uppercase tracking-wide">2. Tier 1: Base Retail Unit</h3>
+                <div class="grid grid-cols-3 gap-3">
+                    <div class="col-span-3">
+                        <label class="block text-xs font-semibold mb-1">Unit Modifier</label>
+                        <input type="text" id="wiz-t1-mod" class="w-full border rounded-lg px-3 py-2 text-sm" value="${t1.name?.match(/\(([^)]+)\)/)?.[1] || ''}">
+                    </div>
+                    <div><label class="block text-xs font-semibold mb-1">Cost Price</label><input type="number" id="wiz-t1-cp" class="w-full border rounded-lg px-3 py-2 text-sm" value="${t1.buying_price||0}"></div>
+                    <div><label class="block text-xs font-semibold mb-1">Sell Price</label><input type="number" id="wiz-t1-sp" class="w-full border rounded-lg px-3 py-2 text-sm" value="${t1.selling_price||0}"></div>
+                    <div><label class="block text-xs font-semibold mb-1">Initial Stock</label><input type="number" id="wiz-t1-stock" class="w-full border rounded-lg px-3 py-2 text-sm" value="${t1.stock_quantity||0}"></div>
+                </div>
+            </div>
+
+            <!-- Tier 2 -->
+            <div class="p-4 bg-slate-50 border border-slate-200 rounded-xl">
+                <div class="flex items-center justify-between mb-3">
+                    <h3 class="text-sm font-bold text-slate-800 uppercase tracking-wide">3. Tier 2</h3>
+                    <div class="flex items-center">
+                        <input type="checkbox" id="wiz-t2-en" class="mr-2 h-4 w-4 text-blue-600 rounded" onchange="document.getElementById('t2-body').classList.toggle('hidden', !this.checked)" ${t2 ? 'checked' : ''}>
+                        <label class="text-xs font-bold text-blue-600">Enable Tier 2</label>
+                    </div>
+                </div>
+                <div id="t2-body" class="${t2 ? '' : 'hidden'} grid grid-cols-4 gap-3">
+                    <div class="col-span-4"><label class="block text-xs font-semibold mb-1">Unit Modifier Name</label><input type="text" id="wiz-t2-mod" class="w-full border rounded-lg px-3 py-2 text-sm" value="${t2?.name?.match(/\(([^)]+)\)/)?.[1] || ''}"></div>
+                    <div><label class="block text-xs font-bold text-blue-700 mb-1">Units per Base</label><input type="number" id="wiz-t2-units" class="w-full border-2 border-blue-300 rounded-lg px-3 py-2 text-sm font-bold" value="${t1.units_per_parent || 1}"></div>
+                    <div><label class="block text-xs font-semibold mb-1">Cost Price</label><input type="number" id="wiz-t2-cp" class="w-full border rounded-lg px-3 py-2 text-sm" value="${t2?.buying_price||0}"></div>
+                    <div><label class="block text-xs font-semibold mb-1">Sell Price</label><input type="number" id="wiz-t2-sp" class="w-full border rounded-lg px-3 py-2 text-sm" value="${t2?.selling_price||0}"></div>
+                    <div><label class="block text-xs font-semibold mb-1">Bulk Stock</label><input type="number" id="wiz-t2-stock" class="w-full border rounded-lg px-3 py-2 text-sm" value="${t2?.stock_quantity||0}"></div>
+                </div>
+            </div>
+            
+            <!-- Tier 3 -->
+            <div class="p-4 bg-slate-50 border border-slate-200 rounded-xl">
+                <div class="flex items-center justify-between mb-3">
+                    <h3 class="text-sm font-bold text-slate-800 uppercase tracking-wide">4. Tier 3</h3>
+                    <div class="flex items-center">
+                        <input type="checkbox" id="wiz-t3-en" class="mr-2 h-4 w-4 text-blue-600 rounded" onchange="document.getElementById('t3-body').classList.toggle('hidden', !this.checked)" ${t3 ? 'checked' : ''}>
+                        <label class="text-xs font-bold text-blue-600">Enable Tier 3</label>
+                    </div>
+                </div>
+                <div id="t3-body" class="${t3 ? '' : 'hidden'} grid grid-cols-4 gap-3">
+                    <div class="col-span-4"><label class="block text-xs font-semibold mb-1">Unit Modifier Name</label><input type="text" id="wiz-t3-mod" class="w-full border rounded-lg px-3 py-2 text-sm" value="${t3?.name?.match(/\(([^)]+)\)/)?.[1] || ''}"></div>
+                    <div><label class="block text-xs font-bold text-blue-700 mb-1">Units per Tier 2</label><input type="number" id="wiz-t3-units" class="w-full border-2 border-blue-300 rounded-lg px-3 py-2 text-sm font-bold" value="${t2?.units_per_parent || 1}"></div>
+                    <div><label class="block text-xs font-semibold mb-1">Cost Price</label><input type="number" id="wiz-t3-cp" class="w-full border rounded-lg px-3 py-2 text-sm" value="${t3?.buying_price||0}"></div>
+                    <div><label class="block text-xs font-semibold mb-1">Sell Price</label><input type="number" id="wiz-t3-sp" class="w-full border rounded-lg px-3 py-2 text-sm" value="${t3?.selling_price||0}"></div>
+                    <div><label class="block text-xs font-semibold mb-1">Bulk Stock</label><input type="number" id="wiz-t3-stock" class="w-full border rounded-lg px-3 py-2 text-sm" value="${t3?.stock_quantity||0}"></div>
+                </div>
+            </div>
+            
+            <!-- Tier 4 -->
+            <div class="p-4 bg-slate-50 border border-slate-200 rounded-xl">
+                <div class="flex items-center justify-between mb-3">
+                    <h3 class="text-sm font-bold text-slate-800 uppercase tracking-wide">5. Tier 4</h3>
+                    <div class="flex items-center">
+                        <input type="checkbox" id="wiz-t4-en" class="mr-2 h-4 w-4 text-blue-600 rounded" onchange="document.getElementById('t4-body').classList.toggle('hidden', !this.checked)" ${t4 ? 'checked' : ''}>
+                        <label class="text-xs font-bold text-blue-600">Enable Tier 4</label>
+                    </div>
+                </div>
+                <div id="t4-body" class="${t4 ? '' : 'hidden'} grid grid-cols-4 gap-3">
+                    <div class="col-span-4"><label class="block text-xs font-semibold mb-1">Unit Modifier Name</label><input type="text" id="wiz-t4-mod" class="w-full border rounded-lg px-3 py-2 text-sm" value="${t4?.name?.match(/\(([^)]+)\)/)?.[1] || ''}"></div>
+                    <div><label class="block text-xs font-bold text-blue-700 mb-1">Units per Tier 3</label><input type="number" id="wiz-t4-units" class="w-full border-2 border-blue-300 rounded-lg px-3 py-2 text-sm font-bold" value="${t3?.units_per_parent || 1}"></div>
+                    <div><label class="block text-xs font-semibold mb-1">Cost Price</label><input type="number" id="wiz-t4-cp" class="w-full border rounded-lg px-3 py-2 text-sm" value="${t4?.buying_price||0}"></div>
+                    <div><label class="block text-xs font-semibold mb-1">Sell Price</label><input type="number" id="wiz-t4-sp" class="w-full border rounded-lg px-3 py-2 text-sm" value="${t4?.selling_price||0}"></div>
+                    <div><label class="block text-xs font-semibold mb-1">Bulk Stock</label><input type="number" id="wiz-t4-stock" class="w-full border rounded-lg px-3 py-2 text-sm" value="${t4?.stock_quantity||0}"></div>
+                </div>
+            </div>
+        </div>
+    `, async (close) => {
+        alert("Updating full hierarchy is complex. For now, use this view to inspect the hierarchy, or delete and recreate it.");
+        close();
+    }, 'Update Hierarchy', 'max-w-4xl');
+};
