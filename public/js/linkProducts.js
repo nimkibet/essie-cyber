@@ -180,6 +180,28 @@ document.getElementById('btn-save-links').addEventListener('click', async () => 
 load();
 
 // --- Quick Add Product Logic ---
+let linkedBaseProduct = null;
+
+const qaSection1 = document.getElementById('qa-section-1');
+qaSection1.addEventListener('dragover', e => { e.preventDefault(); qaSection1.classList.add('bg-blue-100', 'border-blue-400'); });
+qaSection1.addEventListener('dragleave', e => { qaSection1.classList.remove('bg-blue-100', 'border-blue-400'); });
+qaSection1.addEventListener('drop', e => {
+    e.preventDefault();
+    qaSection1.classList.remove('bg-blue-100', 'border-blue-400');
+    if (!draggedItem) return;
+
+    linkedBaseProduct = draggedItem;
+    
+    // Auto-fill
+    document.getElementById('qa-name').value = draggedItem.name;
+    document.getElementById('qa-t1-mod').value = "1"; // Default unit modifier
+    document.getElementById('qa-t1-cp').value = draggedItem.buying_price || 0;
+    document.getElementById('qa-t1-sp').value = draggedItem.selling_price || 0;
+    document.getElementById('qa-t1-stock').value = draggedItem.stock_quantity || 0;
+    
+    document.getElementById('qa-linked-badge').classList.remove('hidden');
+});
+
 document.getElementById('btn-quick-add').addEventListener('click', async () => {
     const baseName = document.getElementById('qa-name').value;
     if (!baseName) { alert("Base Name is required."); return; }
@@ -235,9 +257,21 @@ document.getElementById('btn-quick-add').addEventListener('click', async () => {
         if (i > 0) payload.units_per_parent = tiers[i-1]._my_units || 1;
         else payload.units_per_parent = 1;
 
-        const { data, error } = await supabase.from('inventory').insert([payload]).select().single();
-        if (error) { alert("Error saving tier " + t.level + ": " + error.message); btn.innerHTML = 'Save Product'; btn.disabled = false; return; }
-        lastParentId = data.id;
+        if (i === tiers.length - 1 && linkedBaseProduct) {
+            const { error } = await supabase.from('inventory').update({
+                parent_id: payload.parent_id,
+                units_per_parent: payload.units_per_parent,
+                name: payload.name,
+                buying_price: payload.buying_price,
+                selling_price: payload.selling_price,
+                stock_quantity: payload.stock_quantity
+            }).eq('id', linkedBaseProduct.id);
+            if (error) { alert("Error linking base tier: " + error.message); btn.innerHTML = 'Save Product'; btn.disabled = false; return; }
+        } else {
+            const { data, error } = await supabase.from('inventory').insert([payload]).select().single();
+            if (error) { alert("Error saving tier " + t.level + ": " + error.message); btn.innerHTML = 'Save Product'; btn.disabled = false; return; }
+            lastParentId = data.id;
+        }
     }
 
     // Reset form
@@ -247,7 +281,10 @@ document.getElementById('btn-quick-add').addEventListener('click', async () => {
     document.getElementById('qa-t2-units').value = '1';
     document.getElementById('qa-t3-units').value = '1';
     
+    linkedBaseProduct = null;
+    document.getElementById('qa-linked-badge').classList.add('hidden');
+
     btn.innerHTML = 'Save Product'; btn.disabled = false;
-    alert('Product created successfully!');
+    alert('Product created/linked successfully!');
     load(); // Refresh the list!
 });
