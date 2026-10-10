@@ -178,3 +178,76 @@ document.getElementById('btn-save-links').addEventListener('click', async () => 
 });
 
 load();
+
+// --- Quick Add Product Logic ---
+document.getElementById('btn-quick-add').addEventListener('click', async () => {
+    const baseName = document.getElementById('qa-name').value;
+    if (!baseName) { alert("Base Name is required."); return; }
+
+    const type = document.getElementById('qa-type').value;
+    const isService = document.getElementById('qa-svc').checked;
+    const btn = document.getElementById('btn-quick-add');
+    btn.innerHTML = 'Saving...'; btn.disabled = true;
+
+    const tiers = [];
+    const getName = (mod) => mod ? `${baseName} (${mod})` : baseName;
+
+    // Tier 3
+    if (document.getElementById('qa-t3-en').checked) {
+        tiers.push({
+            level: 3, name: getName(document.getElementById('qa-t3-mod').value),
+            type, is_service: isService, tier_level: 3,
+            buying_price: parseFloat(document.getElementById('qa-t3-cp').value||0),
+            selling_price: parseFloat(document.getElementById('qa-t3-sp').value||0),
+            stock_quantity: parseInt(document.getElementById('qa-t3-stock').value||0),
+            units_per_parent: 1, _my_units: parseInt(document.getElementById('qa-t3-units').value||1)
+        });
+    }
+    // Tier 2
+    if (document.getElementById('qa-t2-en').checked) {
+        tiers.push({
+            level: 2, name: getName(document.getElementById('qa-t2-mod').value),
+            type, is_service: isService, tier_level: 2,
+            buying_price: parseFloat(document.getElementById('qa-t2-cp').value||0),
+            selling_price: parseFloat(document.getElementById('qa-t2-sp').value||0),
+            stock_quantity: parseInt(document.getElementById('qa-t2-stock').value||0),
+            _my_units: parseInt(document.getElementById('qa-t2-units').value||1)
+        });
+    }
+    // Tier 1
+    tiers.push({
+        level: 1, name: getName(document.getElementById('qa-t1-mod').value),
+        type, is_service: isService, tier_level: 1,
+        buying_price: parseFloat(document.getElementById('qa-t1-cp').value||0),
+        selling_price: parseFloat(document.getElementById('qa-t1-sp').value||0),
+        stock_quantity: parseInt(document.getElementById('qa-t1-stock').value||0)
+    });
+
+    let lastParentId = null;
+    for (let i = 0; i < tiers.length; i++) {
+        const t = tiers[i];
+        const payload = {
+            name: t.name, type: t.type, is_service: t.is_service,
+            tier_level: t.tier_level, buying_price: t.buying_price,
+            selling_price: t.selling_price, stock_quantity: t.stock_quantity,
+            parent_id: lastParentId
+        };
+        if (i > 0) payload.units_per_parent = tiers[i-1]._my_units || 1;
+        else payload.units_per_parent = 1;
+
+        const { data, error } = await supabase.from('inventory').insert([payload]).select().single();
+        if (error) { alert("Error saving tier " + t.level + ": " + error.message); btn.innerHTML = 'Save Product'; btn.disabled = false; return; }
+        lastParentId = data.id;
+    }
+
+    // Reset form
+    document.querySelectorAll('#quick-add-form input[type="text"]').forEach(el => el.value = '');
+    document.querySelectorAll('#quick-add-form input[type="number"]').forEach(el => el.value = '0');
+    document.querySelectorAll('#quick-add-form input[type="checkbox"]').forEach(el => { el.checked = false; el.dispatchEvent(new Event('change')); });
+    document.getElementById('qa-t2-units').value = '1';
+    document.getElementById('qa-t3-units').value = '1';
+    
+    btn.innerHTML = 'Save Product'; btn.disabled = false;
+    alert('Product created successfully!');
+    load(); // Refresh the list!
+});
