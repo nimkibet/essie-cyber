@@ -1,7 +1,9 @@
 import { supabase, currentUser, requireAuth } from './supabaseClient.js';
 import { insertSaleWithOfflineSupport, syncOfflineSales, insertExpenseWithOfflineSupport, syncOfflineExpenses } from './offlineQueue.js';
+import { checkAndNotifyLowStock, playAlertChime, playPopChime, playSuccessChime } from './notificationHelper.js';
 requireAuth();
 let inventory = [], customers = [], todaysSales = [];
+let currentLowStockItems = [];
 
 window.setQuickPayUI = function(method) {
     quickPay = method;
@@ -170,7 +172,210 @@ async function loadData() {
     }).subscribe();
 
     await fetchTodaysSales();
+    await checkTodaysOpenedResources();
+
+    // ── Low Stock Notification & UI Indicator ──
+    currentLowStockItems = checkAndNotifyLowStock(inventory) || [];
+    updateLowStockUI(currentLowStockItems);
 }
+
+// ── Low Stock Indicator & Modal Wiring ─────────────────────────────────────
+function updateLowStockUI(lowItems) {
+    const pill = document.getElementById('pos-low-stock-pill');
+    const countEl = document.getElementById('pos-low-stock-count');
+    if (!pill || !countEl) return;
+
+    if (lowItems && lowItems.length > 0) {
+        pill.classList.remove('hidden');
+        pill.classList.add('flex');
+        countEl.textContent = `${lowItems.length} Low Stock`;
+    } else {
+        pill.classList.add('hidden');
+        pill.classList.remove('flex');
+    }
+}
+
+document.getElementById('pos-low-stock-pill')?.addEventListener('click', () => {
+    playPopChime();
+    const modal = document.getElementById('modal-low-stock');
+    const list = document.getElementById('low-stock-list-container');
+    if (!modal || !list) return;
+
+    if (!currentLowStockItems || currentLowStockItems.length === 0) {
+        list.innerHTML = '<div class="py-6 text-center text-slate-400 text-xs">All items are sufficiently stocked!</div>';
+    } else {
+        list.innerHTML = currentLowStockItems.map(item => `
+            <div class="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 border border-slate-200">
+                <div>
+                    <div class="font-bold text-slate-900 text-xs sm:text-sm">${item.name}</div>
+                    <div class="text-[10px] text-slate-400 font-mono">Min Threshold: ${item.min_threshold || 5} units</div>
+                </div>
+                <div class="text-right">
+                    <span class="px-2 py-1 rounded-lg text-xs font-black bg-red-100 text-red-700">
+                        ${item.stock_quantity} remaining
+                    </span>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    modal.classList.remove('hidden');
+});
+
+document.getElementById('btn-close-low-stock')?.addEventListener('click', () => {
+    document.getElementById('modal-low-stock')?.classList.add('hidden');
+});
+
+// ── Shift Consumables Popup Modal & Status Check ────────────────────────────
+function openShiftConsumablesModal() {
+    playPopChime();
+    const modal = document.getElementById('modal-shift-consumables');
+    const select = document.getElementById('modal-shift-res-select');
+    if (!modal || !select) return;
+
+    // Filter bulk consumable items (e.g. reams, toner, cartridges, pouches, spirals)
+    const bulkCandidates = inventory.filter(i => {
+        const n = (i.name || '').toLowerCase();
+        return (i.tier_level && i.tier_level > 1) || (i.units_per_parent && i.units_per_parent > 1) ||
+            n.includes('ream') || n.includes('toner') || n.includes('cartridge') || n.includes('pouch') || n.includes('box') || n.includes('spiral');
+    });
+
+    const candidateList = bulkCandidates.length > 0 ? bulkCandidates : inventory.filter(i => !i.is_service);
+
+    select.innerHTML = '<option value="">-- Choose Consumable to Open --</option>' +
+        candidateList.map(i => `
+            <option value="${i.id}" data-name="${i.name}" data-cost="${i.buying_price || 0}" data-yield="${i.units_per_parent || i.stock_quantity || '-'}">
+                ${i.name} (Cost: Ksh ${i.buying_price || 0})
+            </option>
+        `).join('');
+
+    select.onchange = () => {
+        const opt = select.selectedOptions[0];
+        if (!opt || !opt.value) {
+            document.getElementById('modal-shift-res-preview')?.classList.add('hidden');
+            return;
+        }
+        const cost = parseFloat(opt.dataset.cost || 0);
+        const yieldVal = opt.dataset.yield || '-';
+        const costInput = document.getElementById('modal-shift-res-cost');
+        const costDisp = document.getElementById('modal-shift-res-cost-display');
+        const yieldDisp = document.getElementById('modal-shift-res-yield-display');
+        if (costInput) costInput.value = cost;
+        if (costDisp) costDisp.textContent = `Ksh ${cost.toFixed(2)}`;
+        if (yieldDisp) yieldDisp.textContent = `Yield / Units inside: ${yieldVal} pcs`;
+        document.getElementById('modal-shift-res-preview')?.classList.remove('hidden');
+    };
+
+    modal.classList.remove('hidden');
+}
+
+async function checkTodaysOpenedResources() {
+    const todayStr = new Date().toISOString().split('T')[0];
+    const pill = document.getElementById('pos-shift-res-pill');
+    const statusLabel = document.getElementById('pos-shift-res-status');
+
+    try {
+        const { data: resData } = await supabase
+            .from('resources')
+            .select('id, name, units, cost, status, opened_at')
+            .gte('opened_at', `${todayStr}T00:00:00Z`);
+
+        const activeResources = (resData || []).filter(r => r.status === 'active' || (r.opened_at && r.opened_at.startsWith(todayStr)));
+
+        if (activeResources.length > 0) {
+            if (pill) {
+                pill.className = 'flex items-center gap-1.5 px-3 py-1.5 bg-blue-500/20 border border-blue-400 text-blue-200 rounded-xl text-xs sm:text-sm font-bold cursor-pointer hover:bg-blue-500/30 transition shadow-sm';
+            }
+            if (statusLabel) {
+                statusLabel.textContent = `Stock: ${activeResources.length} Active`;
+            }
+        } else {
+            if (pill) {
+                pill.className = 'flex items-center gap-1.5 px-3 py-1.5 bg-amber-500/20 border border-amber-500/40 text-amber-300 rounded-xl text-xs sm:text-sm font-bold cursor-pointer hover:bg-amber-500/30 transition shadow-sm';
+            }
+            if (statusLabel) {
+                statusLabel.textContent = 'Consumable Check';
+            }
+
+            // Pop up if not dismissed during this browser session
+            const dismissed = sessionStorage.getItem('shift_res_popup_dismissed');
+            if (!dismissed) {
+                setTimeout(openShiftConsumablesModal, 700);
+            }
+        }
+    } catch (e) {
+        console.warn('Could not check shift resources:', e);
+    }
+}
+
+document.getElementById('pos-shift-res-pill')?.addEventListener('click', openShiftConsumablesModal);
+document.getElementById('btn-close-shift-res-modal')?.addEventListener('click', () => {
+    document.getElementById('modal-shift-consumables')?.classList.add('hidden');
+});
+document.getElementById('btn-dismiss-shift-res')?.addEventListener('click', () => {
+    sessionStorage.setItem('shift_res_popup_dismissed', '1');
+    document.getElementById('modal-shift-consumables')?.classList.add('hidden');
+});
+
+document.getElementById('btn-submit-shift-res')?.addEventListener('click', async () => {
+    const select = document.getElementById('modal-shift-res-select');
+    const opt = select?.selectedOptions[0];
+    const itemId = select?.value;
+    const name = opt?.dataset.name || 'Consumable';
+    const qty = parseInt(document.getElementById('modal-shift-res-qty')?.value || 1);
+    const cost = parseFloat(document.getElementById('modal-shift-res-cost')?.value || 0);
+
+    if (!itemId) return alert('Please select a consumable to open.');
+    if (cost <= 0) {
+        if (!confirm('Unit cost is Ksh 0. Opening with 0 cost will not track profit accurately. Continue anyway?')) return;
+    }
+
+    const btn = document.getElementById('btn-submit-shift-res');
+    btn.disabled = true;
+    btn.textContent = 'Opening...';
+
+    try {
+        const item = inventory.find(i => i.id === itemId);
+        const unitsInside = item?.units_per_parent || 500;
+        const totalUnits = unitsInside * qty;
+        const totalCost = cost * qty;
+
+        // 1. Insert into resources
+        const { error: resErr } = await supabase.from('resources').insert([{
+            name: `${name} (${qty}x)`,
+            units: totalUnits,
+            cost: totalCost,
+            status: 'active',
+            opened_at: new Date().toISOString()
+        }]);
+        if (resErr) throw resErr;
+
+        // 2. Insert expense
+        await supabase.from('expenses').insert([{
+            description: `[Opened Consumable] ${name} (${qty}x)`,
+            amount: totalCost,
+            timestamp: new Date().toISOString()
+        }]);
+
+        // 3. Update stock quantity if fixed product
+        if (item && !item.is_service && typeof item.stock_quantity === 'number') {
+            const newStock = Math.max(0, item.stock_quantity - qty);
+            await supabase.from('inventory').update({ stock_quantity: newStock }).eq('id', itemId);
+            item.stock_quantity = newStock;
+        }
+
+        playSuccessChime();
+        sessionStorage.setItem('shift_res_popup_dismissed', '1');
+        document.getElementById('modal-shift-consumables')?.classList.add('hidden');
+        await checkTodaysOpenedResources();
+        alert(`Successfully opened ${qty}x ${name}! Shift profit is now tracked.`);
+    } catch (e) {
+        alert('Error opening consumable: ' + e.message);
+    } finally {
+        btn.disabled = false;
+        btn.textContent = '☀️ Open Stock & Record';
+    }
+});
 
 // ── Feature 1 helper: (re)populate #pos-customer, keeping current selection ──
 function populateCustomerDropdown() {
@@ -207,50 +412,224 @@ function populateDebtDropdown() {
 }
 
 // ── Feature 3 helper: build Quick Add buttons from is_quick_add flag ──────────
-function renderQuickAddButtons() {
+// ── Online Services Presets & Modal ──────────────────────────────────────────
+const ONLINE_SERVICE_PRESETS = [
+    { title: 'Good Conduct', cat: 'eCitizen', price: 1050, desc: 'Police Clearance Certificate' },
+    { title: 'Driving License Renewal', cat: 'eCitizen', price: 650, desc: 'NTSA eCitizen Renewal' },
+    { title: 'Business Search / Reg', cat: 'eCitizen', price: 850, desc: 'BRS Business Registration' },
+    { title: 'Passport Application', cat: 'eCitizen', price: 4550, desc: 'Immigration Passport Form' },
+    { title: 'KRA PIN Registration', cat: 'KRA', price: 200, desc: 'New KRA PIN Certificate' },
+    { title: 'KRA Tax Returns (Nil)', cat: 'KRA', price: 150, desc: 'Annual Nil Return Filing' },
+    { title: 'KRA Tax Returns (P9)', cat: 'KRA', price: 300, desc: 'Employment Income Filing' },
+    { title: 'Tax Compliance (TCC)', cat: 'KRA', price: 350, desc: 'Tax Compliance Certificate' },
+    { title: 'HELB Loan Application', cat: 'HELB', price: 300, desc: 'First Time / Subsequent Loan' },
+    { title: 'HELB Clearance', cat: 'HELB', price: 200, desc: 'HELB Compliance Certificate' },
+    { title: 'NTSA TIMS Account', cat: 'NTSA', price: 250, desc: 'Portal Account & Logbook Search' },
+    { title: 'CV / Resume Writing', cat: 'General', price: 200, desc: 'Curriculum Vitae Typesetting' },
+    { title: 'Job / College Application', cat: 'General', price: 150, desc: 'Online Form & Document Upload' },
+    { title: 'Passport Photo Upload', cat: 'General', price: 100, desc: 'Digital Photo Crop & Resize' },
+    { title: 'Custom Online Service', cat: 'General', price: 0, desc: 'Other Online Cyber Service' }
+];
+
+function openOnlineServicesModal() {
+    playPopChime();
+    const modal = document.getElementById('modal-online-services');
+    const grid = document.getElementById('online-srv-presets-grid');
+    if (!modal || !grid) return;
+
+    grid.innerHTML = ONLINE_SERVICE_PRESETS.map((p, idx) => `
+        <div class="preset-card p-3 rounded-xl border border-slate-200 hover:border-blue-500 hover:bg-blue-50/50 cursor-pointer transition flex flex-col justify-between" onclick="selectOnlinePreset(${idx})">
+            <div>
+                <span class="text-[10px] font-black uppercase tracking-wider text-blue-600 block">${p.cat}</span>
+                <span class="font-bold text-xs sm:text-sm text-slate-800 block">${p.title}</span>
+                <span class="text-[11px] text-slate-500 block leading-tight mt-0.5">${p.desc}</span>
+            </div>
+            <div class="mt-2 text-right">
+                <span class="text-xs sm:text-sm font-black text-blue-700">${p.price > 0 ? `Ksh ${p.price}` : 'Variable'}</span>
+            </div>
+        </div>
+    `).join('');
+
+    document.getElementById('online-srv-name-input').value = '';
+    document.getElementById('online-srv-amt-input').value = '';
+    modal.classList.remove('hidden');
+}
+
+window.selectOnlinePreset = (idx) => {
+    const p = ONLINE_SERVICE_PRESETS[idx];
+    if (!p) return;
+    document.getElementById('online-srv-name-input').value = p.title;
+    document.getElementById('online-srv-amt-input').value = p.price > 0 ? p.price : '';
+    document.getElementById('online-srv-amt-input').focus();
+};
+
+document.getElementById('btn-close-online-srv')?.addEventListener('click', () => {
+    document.getElementById('modal-online-services')?.classList.add('hidden');
+});
+
+document.getElementById('btn-online-srv-quick-log')?.addEventListener('click', async () => {
+    const name = document.getElementById('online-srv-name-input').value.trim() || 'Online Service';
+    const amt = parseFloat(document.getElementById('online-srv-amt-input').value || 0);
+    if (!amt || amt <= 0) return alert('Please enter a valid amount.');
+
+    const onlineItem = inventory.find(i => (i.name || '').toUpperCase().includes('ONLINE SERVICE')) 
+        || { id: '5fd6f715-e7eb-4106-a234-d26516f5d987', name: 'ONLINE SERVICE' };
+
+    const btn = document.getElementById('btn-online-srv-quick-log');
+    btn.disabled = true; btn.textContent = 'Logging...';
+
+    try {
+        const _qRes = await insertSaleWithOfflineSupport(supabase, {
+            item_id: onlineItem.id,
+            total_charged: amt,
+            calculated_qty: 1,
+            calculated_profit: amt,
+            cashier_id: currentUser ? currentUser.id : null,
+            payment_method: quickPay.toLowerCase().replace('-', '')
+        });
+
+        playSuccessChime();
+        document.getElementById('modal-online-services').classList.add('hidden');
+        await fetchTodaysSales();
+        alert(`Logged ${name} for Ksh ${amt.toFixed(2)} (${quickPay})!`);
+    } catch (e) {
+        alert('Error: ' + e.message);
+    } finally {
+        btn.disabled = false; btn.textContent = 'Log Sale';
+    }
+});
+
+document.getElementById('btn-online-srv-add-cart')?.addEventListener('click', () => {
+    const name = document.getElementById('online-srv-name-input').value.trim() || 'Online Service';
+    const amt = parseFloat(document.getElementById('online-srv-amt-input').value || 0);
+    if (!amt || amt <= 0) return alert('Please enter a valid amount.');
+
+    const onlineItem = inventory.find(i => (i.name || '').toUpperCase().includes('ONLINE SERVICE')) 
+        || { id: '5fd6f715-e7eb-4106-a234-d26516f5d987', name: 'ONLINE SERVICE' };
+
+    docCart.push({
+        id: onlineItem.id,
+        name: `Online Service - ${name}`,
+        qty: 1,
+        price: amt,
+        total: amt,
+        buying_price: 0,
+        kyocera_pages: 0
+    });
+
+    playPopChime();
+    renderDocCart();
+    document.getElementById('modal-online-services').classList.add('hidden');
+    // If not in a cart mode, switch to receipt mode so cashier sees it
+    if (currentSaleMode === 'direct') {
+        setSaleMode('receipt');
+    }
+});
+
+// ── Feature 3: Smart Quick Add with Best Sellers ────────────────────────────
+async function renderQuickAddButtons() {
     const container = document.getElementById('quick-srv-container');
     if (!container) return;
 
-    // Items flagged is_quick_add=true; fall back to three hardcoded names if column missing
-    let quickItems = inventory.filter(i => i.is_quick_add === true || i.is_quick_add === 1);
-    if (quickItems.length === 0) {
-        // Graceful fallback — same names as the old hardcoded buttons
-        const fallbackNames = ['Print / Copy', 'Typesetting', 'Binding Service'];
-        quickItems = inventory.filter(i => fallbackNames.includes(i.name));
+    // 1. Fixed Button 1: Print / Copy (Daily volume leader)
+    const printItem = inventory.find(i => {
+        const n = (i.name || '').toLowerCase();
+        return n === 'print / copy' || n === 'print/copy';
+    }) || { id: '637a64d2-1c87-468a-b3d3-37ef914621a8', name: 'Print / Copy', is_service: true, selling_price: 10 };
+
+    // 2. Fixed Button 2: Online Services
+    const onlineItem = {
+        id: '5fd6f715-e7eb-4106-a234-d26516f5d987',
+        name: 'Online Services',
+        isOnlineTrigger: true,
+        icon: '🌐'
+    };
+
+    // 3. Dynamic Slots: Rank top selling items for the week, EXCLUDING Print / Copy & Debt Repayment!
+    let dynamicItems = [];
+    try {
+        const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+        const { data: salesHistory } = await supabase
+            .from('sales_log')
+            .select('item_id')
+            .gte('timestamp', sevenDaysAgo)
+            .eq('is_voided', false)
+            .not('status', 'eq', 'debt_collection');
+
+        const freq = {};
+        (salesHistory || []).forEach(s => {
+            if (s.item_id) freq[s.item_id] = (freq[s.item_id] || 0) + 1;
+        });
+
+        const sortedIds = Object.keys(freq).sort((a, b) => freq[b] - freq[a]);
+        for (const id of sortedIds) {
+            const item = inventory.find(i => i.id === id);
+            if (!item) continue;
+            const lower = (item.name || '').toLowerCase();
+            // Strictly exclude Print/Copy and Debt Repayment as requested
+            if (lower.includes('print') || lower.includes('copy') || lower.includes('debt repayment') || lower.includes('online service')) {
+                continue;
+            }
+            dynamicItems.push(item);
+            if (dynamicItems.length >= 4) break;
+        }
+    } catch (e) {
+        console.warn('Could not rank top sellers:', e);
     }
 
-    quickItems.sort((a, b) => {
-        let idxA = quickAddOrder.indexOf(a.id);
-        let idxB = quickAddOrder.indexOf(b.id);
-        if (idxA === -1) idxA = 9999;
-        if (idxB === -1) idxB = 9999;
-        if (idxA !== idxB) return idxA - idxB;
-        return a.name.localeCompare(b.name);
-    });
-
-    if (quickItems.length === 0) {
-        container.innerHTML = '<span class="text-xs text-slate-400 italic col-span-3">No Quick Add items configured. Visit Settings to enable some.</span>';
-        // Reset activeQuick safely
-        activeQuick = null;
-        return;
+    // Fallbacks if not enough sales history yet (e.g. Spiral Binding, Typesetting, Laminating)
+    if (dynamicItems.length < 4) {
+        const fallbackCandidates = inventory.filter(i => {
+            const lower = (i.name || '').toLowerCase();
+            return !lower.includes('print') && !lower.includes('copy') && !lower.includes('debt repayment') && !lower.includes('online service')
+                && !dynamicItems.find(d => d.id === i.id);
+        });
+        dynamicItems = dynamicItems.concat(fallbackCandidates.slice(0, 4 - dynamicItems.length));
     }
 
-    // Default selection = first item if current activeQuick is no longer valid
-    if (!quickItems.find(i => i.name === activeQuick)) {
-        activeQuick = quickItems[0].name;
+    const allButtons = [
+        { ...printItem, isFixedPrint: true, icon: '🖨️' },
+        onlineItem,
+        ...dynamicItems.map(item => ({ ...item, isDynamicTop: true, icon: '🔥' }))
+    ];
+
+    if (!allButtons.find(i => i.name === activeQuick)) {
+        activeQuick = printItem.name;
     }
 
-    container.innerHTML = quickItems.map(item => {
+    container.innerHTML = allButtons.map(item => {
         const isActive = item.name === activeQuick;
+        let badgeHtml = '';
+        if (item.isFixedPrint) {
+            badgeHtml = '<span class="text-[9px] uppercase font-black bg-blue-800 text-blue-100 px-1.5 py-0.5 rounded">Daily</span>';
+        } else if (item.isOnlineTrigger) {
+            badgeHtml = '<span class="text-[9px] uppercase font-black bg-emerald-700 text-emerald-100 px-1.5 py-0.5 rounded">Portal</span>';
+        } else {
+            badgeHtml = '<span class="text-[9px] uppercase font-black bg-amber-500/20 text-amber-800 px-1.5 py-0.5 rounded">Top</span>';
+        }
+
         const cls = isActive
-            ? 'quick-srv-btn bg-blue-600 text-white py-2 rounded text-sm font-medium'
-            : 'quick-srv-btn bg-gray-100 text-gray-700 py-2 rounded text-sm font-medium hover:bg-gray-200';
-        return `<button class="${cls}" data-name="${item.name}">${item.name}</button>`;
+            ? 'quick-srv-btn bg-blue-600 text-white border-2 border-blue-600 py-3 px-3.5 rounded-xl text-sm font-black shadow-md shadow-blue-600/30 transition flex items-center justify-between text-left'
+            : 'quick-srv-btn bg-white hover:bg-blue-50 text-slate-800 border-2 border-slate-200 hover:border-blue-300 py-3 px-3.5 rounded-xl text-sm font-bold shadow-sm transition flex items-center justify-between text-left';
+
+        return `
+            <button class="${cls}" data-name="${item.name}" data-is-online="${item.isOnlineTrigger ? '1' : '0'}">
+                <span class="truncate flex items-center gap-1.5"><span>${item.icon}</span> ${item.name}</span>
+                ${badgeHtml}
+            </button>
+        `;
     }).join('');
 
-    // Re-attach click handlers
-    container.querySelectorAll('.quick-srv-btn').forEach(b => {
-        b.addEventListener('click', e => window.setQuickServiceUI(e.target.dataset.name));
+    container.querySelectorAll('.quick-srv-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const isOnline = btn.dataset.isOnline === '1';
+            const name = btn.dataset.name;
+            if (isOnline) {
+                openOnlineServicesModal();
+            } else {
+                window.setQuickServiceUI(name);
+            }
+        });
     });
 }
 
@@ -258,18 +637,35 @@ function renderQuickAddButtons() {
 
 async function fetchTodaysSales() {
     const today = new Date().toISOString().split('T')[0];
-    const { data } = await supabase.from('sales_log').select('*, inventory(name)').gte('timestamp', `${today}T00:00:00Z`).eq('is_voided', false).order('timestamp', { ascending: false });
-    todaysSales = data || []; renderLedger();
+    const { data, error } = await supabase.from('sales_log')
+        .select('*, inventory(name), customer:customers(id, name, outstanding_debt)')
+        .gte('timestamp', `${today}T00:00:00Z`)
+        .eq('is_voided', false)
+        .order('timestamp', { ascending: false });
+    if (error) console.error('Error fetching today sales:', error);
+    todaysSales = data || [];
+    renderLedger();
 }
 
 function renderLedger() {
-    let m = 0, c = 0;
+    let m = 0, c = 0, debtIssuedTotal = 0, debtRepaidTotal = 0;
     const tbody = document.getElementById('sales-tbody');
     tbody.innerHTML = '';
 
-    // Group by item name + payment method
-    const groups = {};
+    const regularSales = [];
+    const debtCollections = [];
+
     todaysSales.forEach(s => {
+        if (s.status === 'debt_collection') {
+            debtCollections.push(s);
+        } else {
+            regularSales.push(s);
+        }
+    });
+
+    // Group regular sales by item name
+    const groups = {};
+    regularSales.forEach(s => {
         const key = (s.inventory?.name || 'Unknown');
         if (!groups[key]) {
             groups[key] = {
@@ -278,20 +674,30 @@ function renderLedger() {
                 totalAmount: 0,
                 mpesaAmount: 0,
                 cashAmount: 0,
+                debtAmount: 0,
                 entries: []
             };
         }
         groups[key].totalQty += (s.calculated_qty || 0);
         groups[key].totalAmount += (s.total_charged || 0);
-        if (s.payment_method === 'mpesa') { groups[key].mpesaAmount += s.total_charged; m += s.total_charged; }
-        else { groups[key].cashAmount += s.total_charged; c += s.total_charged; }
+        if (s.status === 'debt') {
+            groups[key].debtAmount = (groups[key].debtAmount || 0) + s.total_charged;
+            debtIssuedTotal += s.total_charged;
+        } else if ((s.payment_method || '').toLowerCase() === 'mpesa') {
+            groups[key].mpesaAmount += s.total_charged;
+            m += s.total_charged;
+        } else {
+            groups[key].cashAmount += s.total_charged;
+            c += s.total_charged;
+        }
         groups[key].entries.push(s);
     });
 
     Object.entries(groups).forEach(([key, grp], idx) => {
         let methodBadge = '';
         if (grp.mpesaAmount > 0) methodBadge += '<span class="text-xs font-bold text-slate-700 bg-emerald-50 px-2 py-0.5 rounded-full mr-1">M-Pesa ' + grp.mpesaAmount.toFixed(0) + '</span>';
-        if (grp.cashAmount > 0) methodBadge += '<span class="text-xs font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full">Cash ' + grp.cashAmount.toFixed(0) + '</span>';
+        if (grp.cashAmount > 0) methodBadge += '<span class="text-xs font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full mr-1">Cash ' + grp.cashAmount.toFixed(0) + '</span>';
+        if (grp.debtAmount > 0) methodBadge += '<span class="text-xs font-bold text-orange-700 bg-orange-50 px-2 py-0.5 rounded-full">Debt ' + grp.debtAmount.toFixed(0) + '</span>';
 
         const safeKey = key.replace(/[^a-zA-Z0-9]/g, '_') + '_' + idx;
 
@@ -319,10 +725,13 @@ function renderLedger() {
                     <tbody>
                         ${grp.entries.map(e => `
                         <tr class="border-t border-slate-100 hover:bg-red-50" id="entry-row-${e.id}">
-                            <td class="py-1.5 px-6 text-slate-500">${new Date(e.timestamp).toLocaleTimeString()}</td>
+                            <td class="py-1.5 px-6 text-slate-500">
+                                ${new Date(e.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                ${e.customer?.name ? `<span class="text-[11px] font-bold text-slate-700 ml-1">(${e.customer.name})</span>` : ''}
+                            </td>
                             <td class="py-1.5 px-4 text-center">${e.calculated_qty}</td>
                             <td class="py-1.5 px-4 text-right font-semibold">Ksh ${e.total_charged.toFixed(2)}</td>
-                            <td class="py-1.5 px-4 text-center"><button onclick="togglePayment('${e.id}', '${e.payment_method}')" class="px-2 py-0.5 rounded text-xs font-bold ${e.payment_method.toLowerCase() === 'mpesa' ? 'bg-slate-100 text-slate-700 hover:bg-emerald-200' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}" title="Click to change">${e.payment_method.toUpperCase()}</button></td>
+                            <td class="py-1.5 px-4 text-center"><button onclick="togglePayment('${e.id}', '${e.payment_method}')" class="px-2 py-0.5 rounded text-xs font-bold ${e.status === 'debt' ? 'bg-orange-100 text-orange-700' : (e.payment_method || '').toLowerCase() === 'mpesa' ? 'bg-slate-100 text-slate-700 hover:bg-emerald-200' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}" title="Click to change">${e.status === 'debt' ? 'DEBT' : (e.payment_method || 'cash').toUpperCase()}</button></td>
                             <td class="py-1.5 px-4 text-center">
                                 <button onclick="voidSale('${e.id}')" class="text-red-500 hover:text-red-700 font-bold text-base leading-none" title="Void this entry">&times;</button>
                             </td>
@@ -334,8 +743,57 @@ function renderLedger() {
         </tr>`;
     });
 
-    document.getElementById('lbl-mpesa').innerText = `Ksh ${m.toFixed(2)}`;
-    document.getElementById('lbl-cash').innerText = `Ksh ${c.toFixed(2)}`;
+    // Render Debt Collections at the bottom
+    if (debtCollections.length > 0) {
+        tbody.innerHTML += `
+        <tr class="bg-blue-50/80 border-t-2 border-blue-200 text-xs font-bold text-blue-900 select-none">
+            <td colspan="5" class="py-2 px-4 flex items-center justify-between">
+                <span>💰 DEBT REPAYMENTS (TODAY)</span>
+                <span class="text-blue-700 font-normal">Customer balance reductions</span>
+            </td>
+        </tr>`;
+
+        debtCollections.forEach(dc => {
+            const cust = dc.customer || customers.find(c => c.id === dc.customer_id);
+            const custName = cust?.name || 'Customer';
+            const remDebt = cust ? parseFloat(cust.outstanding_debt || 0) : 0;
+            const isMpesa = (dc.payment_method || '').toLowerCase() === 'mpesa';
+
+            debtRepaidTotal += dc.total_charged;
+            if (isMpesa) {
+                m += dc.total_charged;
+            } else {
+                c += dc.total_charged;
+            }
+
+            tbody.innerHTML += `
+            <tr class="border-b border-slate-100 hover:bg-blue-50/50 bg-blue-50/20" id="entry-row-${dc.id}">
+                <td class="py-2 px-4 text-slate-800">
+                    <span class="inline-block px-1.5 py-0.5 text-[10px] font-black bg-emerald-100 text-emerald-800 rounded mr-1">DEBT REPAID</span>
+                    <span class="font-bold text-slate-900">${custName}</span>
+                    <span class="text-xs font-semibold text-emerald-700 ml-1">KSh ${dc.total_charged.toFixed(0)}</span>
+                    <span class="text-xs text-slate-500 font-medium ml-1">(Rem: KSh ${remDebt.toFixed(0)})</span>
+                </td>
+                <td class="py-2 px-4 text-center text-slate-400 text-xs">${new Date(dc.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</td>
+                <td class="py-2 px-4 text-right font-bold text-emerald-700">Ksh ${dc.total_charged.toFixed(2)}</td>
+                <td class="py-2 px-4 text-center">
+                    <button onclick="togglePayment('${dc.id}', '${dc.payment_method}')" class="px-2 py-0.5 rounded text-xs font-bold ${isMpesa ? 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100' : 'bg-blue-50 text-blue-700 hover:bg-blue-100'}" title="Click to change payment method">${isMpesa ? 'M-PESA' : 'CASH'}</button>
+                </td>
+                <td class="py-2 px-4 text-center">
+                    <button onclick="voidSale('${dc.id}')" class="text-red-500 hover:text-red-700 font-bold text-base leading-none p-1 rounded hover:bg-red-50" title="Void debt collection (restores customer debt)">&times;</button>
+                </td>
+            </tr>`;
+        });
+    }
+
+    if (todaysSales.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="5" class="py-8 text-center text-slate-400 text-xs italic">No sales or debt collections recorded today.</td></tr>`;
+    }
+
+    if (document.getElementById('lbl-mpesa')) document.getElementById('lbl-mpesa').innerText = `Ksh ${m.toFixed(2)}`;
+    if (document.getElementById('lbl-cash')) document.getElementById('lbl-cash').innerText = `Ksh ${c.toFixed(2)}`;
+    if (document.getElementById('lbl-debt-issued')) document.getElementById('lbl-debt-issued').innerText = `Ksh ${debtIssuedTotal.toFixed(2)}`;
+    if (document.getElementById('lbl-debt-repaid')) document.getElementById('lbl-debt-repaid').innerText = `Ksh ${debtRepaidTotal.toFixed(2)}`;
 }
 
 window.toggleLedgerGroup = (key) => {
@@ -454,8 +912,10 @@ document.getElementById('btn-save-new-cust').addEventListener('click', async () 
         populateDebtDropdown();
     populateDebtSaleDropdown();
 
-        // Auto-select the newly created customer in pos-customer
+        // Auto-select the newly created customer in pos-customer & debt-sale-customer-select
         document.getElementById('pos-customer').value = data.id;
+        const debtSel = document.getElementById('debt-sale-customer-select');
+        if (debtSel) debtSel.value = data.id;
 
         document.getElementById('modal-add-customer').classList.add('hidden');
     } catch (err) {
@@ -498,11 +958,11 @@ document.getElementById('btn-collect-debt').addEventListener('click', async () =
     const method = document.getElementById('debt-method-select').value;
 
     try {
-        // Ensure we have an item to link to (foreign key constraint)
-        if (!inventory || inventory.length === 0) {
-            throw new Error("No items in inventory to link debt collection.");
-        }
-        const dummyItemId = inventory[0].id;
+        // Link to dedicated DEBT REPAYMENT service item (prevents dummy items like 1 Litre Soda)
+        const repaymentItem = inventory.find(i => i.name === 'DEBT REPAYMENT') 
+            || inventory.find(i => i.is_service) 
+            || inventory[0];
+        const dummyItemId = repaymentItem ? repaymentItem.id : null;
 
         const { error: dbError } = await supabase
             .from('customers')
@@ -510,14 +970,18 @@ document.getElementById('btn-collect-debt').addEventListener('click', async () =
             .eq('id', custId);
         if (dbError) throw dbError;
 
-        // Insert into sales_log for daily tracking
+        // Insert into sales_log for daily tracking with explicit debt_collection status
         const { error: logError } = await supabase.from('sales_log').insert([{
             item_id: dummyItemId,
-            quantity: 1, // dummy quantity
+            calculated_qty: 1,
+            quantity: 1,
             total_charged: amount,
             calculated_profit: 0,
-            payment_method: method,
-            status: 'debt_collection'
+            payment_method: method.toLowerCase(),
+            status: 'debt_collection',
+            customer_id: custId,
+            cashier_id: currentUser ? currentUser.id : null,
+            timestamp: new Date().toISOString()
         }]);
         if (logError) throw logError;
 
@@ -526,7 +990,8 @@ document.getElementById('btn-collect-debt').addEventListener('click', async () =
         localStorage.setItem('essie_customers_cache', JSON.stringify(customers));
         populateCustomerDropdown();
         populateDebtDropdown();
-    populateDebtSaleDropdown();
+        populateDebtSaleDropdown();
+        await fetchTodaysSales();
 
         document.getElementById('debt-amount-input').value = '';
         document.getElementById('debt-current-balance').value = `Ksh ${newDebt.toFixed(2)}`;
@@ -649,11 +1114,29 @@ document.getElementById('quick-log-btn').addEventListener('click', async () => {
           }
       }
 
+      // If in Multi-Item Receipt, Quotation, or Debt mode, add to Cart instead of immediate direct sale
+      if (currentSaleMode === 'receipt' || currentSaleMode === 'quote' || currentSaleMode === 'debt') {
+          docCart.push({
+              id: logItem.id,
+              name: logItem.name,
+              qty: logQty,
+              price: amt / logQty,
+              total: amt,
+              buying_price: logItem.buying_price || 0,
+              kyocera_pages: 0
+          });
+          playPopChime();
+          renderDocCart();
+          document.getElementById('quick-amount').value = '';
+          return;
+      }
+
       const _qRes = await insertSaleWithOfflineSupport(supabase, {
           item_id: logItem.id, total_charged: amt, calculated_qty: logQty,
-          calculated_profit: logProfit, cashier_id: currentUser.id,
+          calculated_profit: logProfit, cashier_id: currentUser ? currentUser.id : null,
           payment_method: quickPay.toLowerCase().replace('-', '')
       });
+      playSuccessChime();
             if (_qRes.offline) {
           document.getElementById('quick-amount').value = '';
           if(document.getElementById('quick-qty')) document.getElementById('quick-qty').value = 1;
@@ -772,118 +1255,154 @@ document.getElementById('pos-qty').addEventListener('input', () => {
 }));
 
 
-// --- Document Builder Logic ---
-let isDocMode = false;
+// ── Document / Multi-Item Cart & Quotation Logic ────────────────────────────
+let currentSaleMode = 'direct'; // 'direct' | 'receipt' | 'quote' | 'debt'
 let docCart = [];
 
-let isDebtMode = false;
+function setSaleMode(mode) {
+    currentSaleMode = mode;
+
+    const btnDirect = document.getElementById('mode-direct');
+    const btnReceipt = document.getElementById('mode-receipt');
+    const btnQuote = document.getElementById('mode-quote');
+    const btnDebt = document.getElementById('mode-debt');
+
+    const activeCls = 'flex-1 sm:flex-none px-3.5 py-2 text-xs sm:text-sm font-black bg-white shadow-sm rounded-lg text-blue-600 transition';
+    const inactiveCls = 'flex-1 sm:flex-none px-3.5 py-2 text-xs sm:text-sm font-bold text-slate-600 hover:text-slate-900 rounded-lg transition';
+
+    if (btnDirect) btnDirect.className = mode === 'direct' ? activeCls : inactiveCls;
+    if (btnReceipt) btnReceipt.className = mode === 'receipt' ? activeCls : inactiveCls;
+    if (btnQuote) btnQuote.className = mode === 'quote' ? activeCls : inactiveCls;
+    if (btnDebt) btnDebt.className = mode === 'debt' ? activeCls : inactiveCls;
+
+    const docActions = document.getElementById('doc-actions');
+    const directActions = document.getElementById('direct-actions');
+    const docCartPanel = document.getElementById('doc-cart-panel');
+    const quoteContainer = document.getElementById('quote-details-container');
+    const debtContainer = document.getElementById('debt-customer-container');
+    const custWrap = document.getElementById('pos-customer-wrap');
+    const addDocBtnLabel = document.getElementById('btn-add-to-doc-label');
+
+    const cartActionsReceipt = document.getElementById('cart-actions-receipt');
+    const cartActionsQuote = document.getElementById('cart-actions-quote');
+    const cartActionsDebt = document.getElementById('cart-actions-debt');
+
+    if (mode === 'direct') {
+        docActions?.classList.add('hidden');
+        directActions?.classList.remove('hidden');
+        docCartPanel?.classList.add('hidden');
+        quoteContainer?.classList.add('hidden');
+        debtContainer?.classList.add('hidden');
+        custWrap?.classList.remove('hidden');
+        document.getElementById('main-pay-mpesa')?.classList.remove('hidden');
+        document.getElementById('main-pay-cash')?.classList.remove('hidden');
+        document.getElementById('main-pay-debt')?.classList.add('hidden');
+    } else {
+        docActions?.classList.remove('hidden');
+        directActions?.classList.add('hidden');
+        docCartPanel?.classList.remove('hidden');
+
+        if (mode === 'receipt') {
+            quoteContainer?.classList.add('hidden');
+            debtContainer?.classList.add('hidden');
+            custWrap?.classList.remove('hidden');
+            cartActionsReceipt?.classList.remove('hidden');
+            cartActionsQuote?.classList.add('hidden');
+            cartActionsDebt?.classList.add('hidden');
+            if (addDocBtnLabel) addDocBtnLabel.textContent = 'Add to Multi-Item Receipt';
+        } else if (mode === 'quote') {
+            quoteContainer?.classList.remove('hidden');
+            debtContainer?.classList.add('hidden');
+            custWrap?.classList.add('hidden');
+            cartActionsReceipt?.classList.add('hidden');
+            cartActionsQuote?.classList.remove('hidden');
+            cartActionsDebt?.classList.add('hidden');
+            if (addDocBtnLabel) addDocBtnLabel.textContent = 'Add to Quotation';
+        } else if (mode === 'debt') {
+            quoteContainer?.classList.add('hidden');
+            debtContainer?.classList.remove('hidden');
+            custWrap?.classList.remove('hidden');
+            cartActionsReceipt?.classList.add('hidden');
+            cartActionsQuote?.classList.add('hidden');
+            cartActionsDebt?.classList.remove('hidden');
+            if (addDocBtnLabel) addDocBtnLabel.textContent = 'Add to Debt Cart';
+        }
+    }
+    renderDocCart();
+}
+
 function resetModes() {
-    isDocMode = false;
-    isDebtMode = false;
-    document.getElementById('mode-direct').className = "px-3 py-1 text-sm font-bold text-gray-500 hover:text-gray-700 rounded-md transition-all";
-    document.getElementById('mode-doc').className = "px-3 py-1 text-sm font-bold text-gray-500 hover:text-gray-700 rounded-md transition-all";
-    const modeDebt = document.getElementById('mode-debt');
-    if(modeDebt) modeDebt.className = "px-3 py-1 text-sm font-bold text-gray-500 hover:text-gray-700 rounded-md transition-all";
-    
-    document.getElementById('doc-actions').classList.add('hidden');
-    document.getElementById('direct-actions').classList.remove('hidden');
-    document.getElementById('doc-cart-panel').classList.add('hidden');
-    
-    document.getElementById('debt-customer-container').classList.add('hidden');
-    document.getElementById('main-pay-mpesa').classList.remove('hidden');
-    document.getElementById('main-pay-cash').classList.remove('hidden');
-    const mainPayDebt = document.getElementById('main-pay-debt');
-    if(mainPayDebt) mainPayDebt.classList.add('hidden');
-    
-    const btnDebtCart = document.getElementById('btn-debt-cart');
-    if(btnDebtCart) btnDebtCart.classList.add('hidden');
-    const btnDlQuote = document.getElementById('btn-dl-quote');
-    const btnRecMpesa = document.getElementById('btn-receipt-mpesa');
-    const btnRecCash = document.getElementById('btn-receipt-cash');
-    if(btnDlQuote) btnDlQuote.classList.remove('hidden');
-    if(btnRecMpesa) btnRecMpesa.classList.remove('hidden');
-    if(btnRecCash) btnRecCash.classList.remove('hidden');
+    setSaleMode('direct');
 }
 
-document.getElementById('mode-direct').addEventListener('click', () => {
-    resetModes();
-    document.getElementById('mode-direct').className = "px-3 py-1 text-sm font-bold bg-white shadow-sm rounded-md text-blue-600 transition-all";
-});
-
-document.getElementById('mode-doc').addEventListener('click', () => {
-    resetModes();
-    isDocMode = true;
-    document.getElementById('mode-doc').className = "px-3 py-1 text-sm font-bold bg-white shadow-sm rounded-md text-blue-600 transition-all";
-    document.getElementById('doc-actions').classList.remove('hidden');
-    document.getElementById('direct-actions').classList.add('hidden');
-    document.getElementById('doc-cart-panel').classList.remove('hidden');
-});
-
-const modeDebtBtn = document.getElementById('mode-debt');
-if(modeDebtBtn) {
-    modeDebtBtn.addEventListener('click', () => {
-        resetModes();
-        isDebtMode = true;
-        modeDebtBtn.className = "px-3 py-1 text-sm font-bold bg-white shadow-sm rounded-md text-blue-600 transition-all";
-        
-        // Show the cart for debt mode
-        document.getElementById('doc-actions').classList.remove('hidden');
-        document.getElementById('direct-actions').classList.remove('hidden');
-        
-        document.getElementById('main-pay-mpesa').classList.add('hidden');
-        document.getElementById('main-pay-cash').classList.add('hidden');
-        const mainPayDebt = document.getElementById('main-pay-debt');
-        if(mainPayDebt) mainPayDebt.classList.remove('hidden');
-        
-        // Also show the Cart panel
-        document.getElementById('doc-cart-panel').classList.remove('hidden');
-        document.getElementById('debt-customer-container').classList.remove('hidden');
-        
-        // Inside the cart, hide the standard receipt buttons and show "Process Debt"
-        const btnDlQuote = document.getElementById('btn-dl-quote');
-        const btnRecMpesa = document.getElementById('btn-receipt-mpesa');
-        const btnRecCash = document.getElementById('btn-receipt-cash');
-        if(btnDlQuote) btnDlQuote.classList.add('hidden');
-        if(btnRecMpesa) btnRecMpesa.classList.add('hidden');
-        if(btnRecCash) btnRecCash.classList.add('hidden');
-        
-        const btnDebtCart = document.getElementById('btn-debt-cart');
-        if(btnDebtCart) btnDebtCart.classList.remove('hidden');
-    });
-}
+document.getElementById('mode-direct')?.addEventListener('click', () => setSaleMode('direct'));
+document.getElementById('mode-receipt')?.addEventListener('click', () => setSaleMode('receipt'));
+document.getElementById('mode-quote')?.addEventListener('click', () => setSaleMode('quote'));
+document.getElementById('mode-debt')?.addEventListener('click', () => setSaleMode('debt'));
 
 function renderDocCart() {
     const tbody = document.getElementById('doc-cart-tbody');
+    if (!tbody) return;
     tbody.innerHTML = '';
     let total = 0;
     docCart.forEach((item, idx) => {
         total += item.total;
         tbody.innerHTML += `
-            <tr class="hover:bg-gray-100">
-                <td class="p-2">${item.name}</td>
-                <td class="p-2 text-center">${item.qty}</td>
-                <td class="p-2 text-right">Ksh ${item.total.toFixed(2)}</td>
-                <td class="p-2 text-center text-red-500 cursor-pointer" onclick="removeDocItem(${idx})">&times;</td>
+            <tr class="hover:bg-slate-100/80 transition-colors">
+                <td class="p-2.5">
+                    <span class="font-bold text-slate-800 block">${item.name}</span>
+                    <span class="text-xs text-slate-400">@ Ksh ${item.price.toFixed(2)}</span>
+                </td>
+                <td class="p-2.5 text-center">
+                    <div class="inline-flex items-center border border-slate-300 rounded-lg bg-white overflow-hidden shadow-xs">
+                        <button onclick="adjustDocItemQty(${idx}, -1)" class="px-2 py-0.5 text-slate-600 hover:bg-slate-100 font-black text-sm">-</button>
+                        <span class="px-2 py-0.5 font-bold text-xs min-w-[24px] text-center">${item.qty}</span>
+                        <button onclick="adjustDocItemQty(${idx}, 1)" class="px-2 py-0.5 text-slate-600 hover:bg-slate-100 font-black text-sm">+</button>
+                    </div>
+                </td>
+                <td class="p-2.5 text-right font-medium text-slate-600">Ksh ${item.price.toFixed(2)}</td>
+                <td class="p-2.5 text-right font-black text-slate-900">Ksh ${item.total.toFixed(2)}</td>
+                <td class="p-2.5 text-center">
+                    <button onclick="removeDocItem(${idx})" class="w-6 h-6 rounded-full hover:bg-red-100 text-red-500 font-black text-base inline-flex items-center justify-center transition" title="Remove">&times;</button>
+                </td>
             </tr>
         `;
     });
-    document.getElementById('doc-cart-total').innerText = `Ksh ${total.toFixed(2)}`;
+    
+    const heading = document.getElementById('doc-cart-heading');
+    if (heading) {
+        const modeLabel = currentSaleMode === 'quote' ? 'Quotation' : (currentSaleMode === 'debt' ? 'Debt' : 'Receipt');
+        heading.textContent = `${modeLabel} Items (${docCart.length})`;
+    }
+    const totalEl = document.getElementById('doc-cart-total');
+    if (totalEl) totalEl.innerText = `Ksh ${total.toFixed(2)}`;
 }
+
+window.adjustDocItemQty = (idx, delta) => {
+    if (!docCart[idx]) return;
+    docCart[idx].qty += delta;
+    if (docCart[idx].qty <= 0) {
+        docCart.splice(idx, 1);
+    } else {
+        docCart[idx].total = docCart[idx].qty * docCart[idx].price;
+    }
+    renderDocCart();
+};
 
 window.removeDocItem = (idx) => {
     docCart.splice(idx, 1);
     renderDocCart();
 };
 
-document.getElementById('btn-add-to-doc').addEventListener('click', () => {
+document.getElementById('btn-add-to-doc')?.addEventListener('click', () => {
     const amt = parseFloat(document.getElementById('pos-total').value);
-    const qty = parseInt(document.getElementById('pos-qty').value);
+    const qty = parseInt(document.getElementById('pos-qty').value) || 1;
     const item = inventory.find(i => i.id === document.getElementById('pos-item-id').value);
     
-    if(!item || !amt) return alert('Select an item and enter amount');
+    if (!item || isNaN(amt) || amt <= 0) return alert('Select an item and enter a valid amount.');
     
     let bc = item.buying_price || 0, kyo = 0;
-    if(!document.getElementById('kyocera-fields').classList.contains('hidden')) { 
+    if (!document.getElementById('kyocera-fields').classList.contains('hidden')) { 
         kyo = parseInt(document.getElementById('kyo-pages').value) || 0; 
         bc = kyo * parseFloat(document.getElementById('kyo-cost-pp').value || 0); 
     }
@@ -898,55 +1417,101 @@ document.getElementById('btn-add-to-doc').addEventListener('click', () => {
         kyocera_pages: kyo
     });
     
+    playPopChime();
+
     // Reset inputs
     document.getElementById('pos-item-search').value = '';
     document.getElementById('pos-item-id').value = '';
     document.getElementById('pos-total').value = '';
     document.getElementById('pos-qty').value = 1;
-    document.getElementById('kyocera-fields').classList.add('hidden');
+    document.getElementById('kyocera-fields')?.classList.add('hidden');
     
     renderDocCart();
 });
 
-document.getElementById('btn-clear-doc').addEventListener('click', () => {
-    if(confirm('Clear document cart?')) { docCart = []; renderDocCart(); }
+document.getElementById('btn-clear-doc')?.addEventListener('click', () => {
+    if (docCart.length === 0) return;
+    if (confirm('Clear all items from cart?')) {
+        docCart = [];
+        renderDocCart();
+    }
 });
 
 function generatePDF(type, paymentMethod = '') {
-    if (docCart.length === 0) return alert('Document cart is empty.');
+    if (docCart.length === 0) return alert('Cart is empty.');
     
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF();
-    const custId = document.getElementById('pos-customer').value;
-    const cust = customers.find(c => c.id === custId) || { name: 'Walk-in Customer' };
+
+    const quoteCustName = document.getElementById('quote-cust-name')?.value?.trim();
+    const custId = document.getElementById('pos-customer')?.value;
+    const cust = quoteCustName ? { name: quoteCustName } : (customers.find(c => c.id === custId) || { name: 'Walk-in Customer / Client' });
+    const validityDays = parseInt(document.getElementById('quote-validity')?.value || 14);
     
-    // Header
-    doc.setFillColor(30, 41, 59);
-    doc.rect(0, 0, 210, 30, 'F');
+    const today = new Date();
+    const validUntilDate = new Date();
+    validUntilDate.setDate(today.getDate() + validityDays);
+
+    // Header in Essie Blue
+    doc.setFillColor(37, 99, 235);
+    doc.rect(0, 0, 210, 32, 'F');
     doc.setTextColor(255, 255, 255);
     doc.setFontSize(22);
     doc.setFont("helvetica", "bold");
-    doc.text("Essie Cyber", 14, 20);
+    doc.text("ESSIE CYBER SERVICES", 14, 18);
+
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    doc.text("Professional Printing • Photocopy • Scanning • Online Services", 14, 26);
     
     doc.setFontSize(14);
-    doc.text(type === 'quote' ? 'QUOTATION' : 'RECEIPT', 170, 20, { align: 'right' });
+    doc.setFont("helvetica", "bold");
+    doc.text(type === 'quote' ? 'OFFICIAL QUOTATION' : 'CASH / M-PESA RECEIPT', 196, 20, { align: 'right' });
     
-    // Bill To
-    doc.setTextColor(50, 50, 50);
-    doc.setFontSize(10);
-    doc.text("Bill To:", 14, 45);
+    // Client Details & Reference Box
+    doc.setTextColor(30, 41, 59);
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "bold");
+    doc.text("ISSUED TO / CLIENT:", 14, 42);
     doc.setFontSize(12);
-    doc.text(cust.name, 14, 52);
-    if(cust.phone) doc.text(`Phone: ${cust.phone}`, 14, 58);
+    doc.text(cust.name, 14, 49);
+    if (cust.phone) {
+        doc.setFontSize(10);
+        doc.setFont("helvetica", "normal");
+        doc.text(`Phone: ${cust.phone}`, 14, 55);
+    }
     
-    // Date & Ref
-    doc.setFontSize(10);
-    doc.text(`Date: ${new Date().toLocaleDateString()}`, 170, 45, { align: 'right' });
-    doc.text(`Ref: ${Math.random().toString(36).substr(2, 6).toUpperCase()}`, 170, 52, { align: 'right' });
-    if(paymentMethod) doc.text(`Paid via: ${paymentMethod}`, 170, 59, { align: 'right' });
+    // Date & Ref Box
+    const refCode = type === 'quote'
+        ? `QUO-${today.getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`
+        : `REC-${today.getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
+
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "bold");
+    doc.text(`Doc Ref:`, 140, 42);
+    doc.setFont("helvetica", "normal");
+    doc.text(refCode, 196, 42, { align: 'right' });
+
+    doc.setFont("helvetica", "bold");
+    doc.text(`Issue Date:`, 140, 48);
+    doc.setFont("helvetica", "normal");
+    doc.text(today.toLocaleDateString(), 196, 48, { align: 'right' });
+
+    if (type === 'quote') {
+        doc.setFont("helvetica", "bold");
+        doc.text(`Valid Until:`, 140, 54);
+        doc.setFont("helvetica", "normal");
+        doc.text(validUntilDate.toLocaleDateString(), 196, 54, { align: 'right' });
+    } else if (paymentMethod) {
+        doc.setFont("helvetica", "bold");
+        doc.text(`Payment:`, 140, 54);
+        doc.setFont("helvetica", "normal");
+        doc.text(paymentMethod.toUpperCase(), 196, 54, { align: 'right' });
+    }
     
     // Table
-    const tableData = docCart.map(item => [
+    const tableData = docCart.map((item, idx) => [
+        idx + 1,
         item.name,
         item.qty,
         `Ksh ${item.price.toFixed(2)}`,
@@ -954,39 +1519,54 @@ function generatePDF(type, paymentMethod = '') {
     ]);
     
     let sum = 0; docCart.forEach(i => sum += i.total);
-    tableData.push(['', '', 'TOTAL', `Ksh ${sum.toFixed(2)}`]);
+    tableData.push(['', 'TOTAL PAYABLE', '', '', `Ksh ${sum.toFixed(2)}`]);
     
     doc.autoTable({
-        startY: 70,
-        head: [['Description', 'Qty', 'Unit Price', 'Amount']],
+        startY: 64,
+        head: [['#', 'Description of Services / Products', 'Qty', 'Unit Price', 'Total']],
         body: tableData,
         theme: 'striped',
-        headStyles: { fillColor: [79, 70, 229] },
-        styles: { font: 'helvetica', fontSize: 10 },
-        columnStyles: { 3: { fontStyle: 'bold' } },
+        headStyles: { fillColor: [37, 99, 235], fontStyle: 'bold' },
+        styles: { font: 'helvetica', fontSize: 10, cellPadding: 3.5 },
+        columnStyles: {
+            0: { halign: 'center', cellWidth: 12 },
+            2: { halign: 'center', cellWidth: 20 },
+            3: { halign: 'right', cellWidth: 35 },
+            4: { halign: 'right', fontStyle: 'bold', cellWidth: 35 }
+        },
         didParseCell: function (data) {
             if (data.row.index === tableData.length - 1) {
                 data.cell.styles.fontStyle = 'bold';
-                data.cell.styles.fillColor = [240, 240, 240];
+                data.cell.styles.fontSize = 11;
+                data.cell.styles.fillColor = [239, 246, 255];
+                data.cell.styles.textColor = [30, 64, 175];
             }
         }
     });
     
     const finalY = doc.lastAutoTable.finalY || 80;
+
+    // Terms & Signoff
     doc.setFontSize(9);
-    doc.setTextColor(150, 150, 150);
-    doc.text("Thank you for your business!", 105, finalY + 20, { align: 'center' });
+    doc.setTextColor(100, 116, 139);
+    if (type === 'quote') {
+        doc.text(`Notes & Terms:\n1. This quotation is valid for ${validityDays} days from date of issue.\n2. Prices inclusive of applicable service fees.\n3. Payment via M-Pesa / Cash upon job authorization.`, 14, finalY + 14);
+        doc.text("Authorized Signature & Stamp: ______________________", 120, finalY + 30);
+    } else {
+        doc.text("Thank you for your business! Goods / printed jobs received in good condition.", 105, finalY + 16, { align: 'center' });
+    }
     
-    doc.save(`${type === 'quote' ? 'Quotation' : 'Receipt'}_${cust.name.replace(/\s+/g, '_')}_${new Date().getTime()}.pdf`);
+    const fileName = `${type === 'quote' ? 'Quotation' : 'Receipt'}_${cust.name.replace(/[^a-zA-Z0-9]/g, '_')}_${today.toISOString().split('T')[0]}.pdf`;
+    doc.save(fileName);
 }
 
 async function processReceipt(paymentMethod) {
     if (docCart.length === 0) return alert('Cart is empty.');
     
-    // Disable buttons
-    document.getElementById('btn-receipt-mpesa').disabled = true;
-    document.getElementById('btn-receipt-cash').disabled = true;
-    document.getElementById('btn-receipt-mpesa').innerText = 'Processing...';
+    const btnMpesa = document.getElementById('btn-receipt-mpesa');
+    const btnCash = document.getElementById('btn-receipt-cash');
+    if (btnMpesa) btnMpesa.disabled = true;
+    if (btnCash) btnCash.disabled = true;
     
     try {
         const logs = docCart.map(i => ({
@@ -994,38 +1574,45 @@ async function processReceipt(paymentMethod) {
             total_charged: i.total,
             calculated_qty: i.qty,
             calculated_profit: i.total - (i.buying_price * i.qty),
-            cashier_id: currentUser.id,
+            cashier_id: currentUser ? currentUser.id : null,
             payment_method: paymentMethod.toLowerCase().replace('-', ''),
-            kyocera_pages: i.kyocera_pages
+            kyocera_pages: i.kyocera_pages || 0
         }));
         
         for (const log of logs) {
-            const qRes = await insertSaleWithOfflineSupport(supabase, log);
-            if (qRes.offline) {
-                // If one is offline, all will be offline. We can just alert once at the end.
+            await insertSaleWithOfflineSupport(supabase, log);
+        }
+
+        // Deduct inventory for physical items
+        for (let item of docCart) {
+            const invItem = inventory.find(i => i.id === item.id);
+            if (invItem && !invItem.is_service && typeof invItem.stock_quantity === 'number') {
+                const newStock = Math.max(0, invItem.stock_quantity - item.qty);
+                invItem.stock_quantity = newStock;
             }
         }
-        if (!navigator.onLine) {
-            alert('No internet — receipt sales saved locally and will sync when back online.');
-        }
         
+        playSuccessChime();
         generatePDF('receipt', paymentMethod);
         
         docCart = [];
         renderDocCart();
-        fetchTodaysSales();
+        await fetchTodaysSales();
+        alert(`Receipt processed and downloaded for ${paymentMethod} payment!`);
     } catch(err) {
         alert('Error logging receipt: ' + err.message);
     } finally {
-        document.getElementById('btn-receipt-mpesa').disabled = false;
-        document.getElementById('btn-receipt-cash').disabled = false;
-        document.getElementById('btn-receipt-mpesa').innerText = 'Receipt (M-Pesa)';
+        if (btnMpesa) btnMpesa.disabled = false;
+        if (btnCash) btnCash.disabled = false;
     }
 }
 
-document.getElementById('btn-dl-quote').addEventListener('click', () => generatePDF('quote'));
-document.getElementById('btn-receipt-mpesa').addEventListener('click', () => processReceipt('M-Pesa'));
-document.getElementById('btn-receipt-cash').addEventListener('click', () => processReceipt('Cash'));
+document.getElementById('btn-dl-quote')?.addEventListener('click', () => {
+    generatePDF('quote');
+    playSuccessChime();
+});
+document.getElementById('btn-receipt-mpesa')?.addEventListener('click', () => processReceipt('M-Pesa'));
+document.getElementById('btn-receipt-cash')?.addEventListener('click', () => processReceipt('Cash'));
 
 loadData();
 
@@ -1052,12 +1639,53 @@ window.togglePayment = async (id, currentMethod) => {
 window.voidSale = async (id) => {
     if (!confirm('Are you sure you want to void this entry?')) return;
     try {
+        let sale = todaysSales.find(s => s.id === id);
+        if (!sale) {
+            const { data } = await supabase.from('sales_log').select('*').eq('id', id).single();
+            sale = data;
+        }
+
+        if (sale && sale.customer_id) {
+            let cust = customers.find(c => c.id === sale.customer_id);
+            let currentDebt = cust ? parseFloat(cust.outstanding_debt || 0) : 0;
+
+            if (!cust) {
+                const { data: dbCust } = await supabase.from('customers').select('*').eq('id', sale.customer_id).single();
+                if (dbCust) {
+                    cust = dbCust;
+                    currentDebt = parseFloat(dbCust.outstanding_debt || 0);
+                    customers.push(dbCust);
+                }
+            }
+
+            if (sale.status === 'debt_collection') {
+                // Voiding a collection restores the customer's debt (moves it back up)
+                const newDebt = currentDebt + parseFloat(sale.total_charged || 0);
+                const { error: custErr } = await supabase.from('customers').update({ outstanding_debt: newDebt }).eq('id', sale.customer_id);
+                if (custErr) throw custErr;
+                if (cust) cust.outstanding_debt = newDebt;
+            } else if (sale.status === 'debt') {
+                // Voiding a credit/debt sale cancels the added debt (moves it back down)
+                const newDebt = Math.max(0, currentDebt - parseFloat(sale.total_charged || 0));
+                const { error: custErr } = await supabase.from('customers').update({ outstanding_debt: newDebt }).eq('id', sale.customer_id);
+                if (custErr) throw custErr;
+                if (cust) cust.outstanding_debt = newDebt;
+            }
+
+            localStorage.setItem('essie_customers_cache', JSON.stringify(customers));
+            populateCustomerDropdown();
+            populateDebtDropdown();
+            populateDebtSaleDropdown();
+        }
+
         const { error } = await supabase.from('sales_log').update({
             is_voided: true,
-            voided_by: currentUser.id
+            voided_at: new Date().toISOString(),
+            voided_by: currentUser ? currentUser.id : null
         }).eq('id', id);
         if (error) throw error;
-        fetchTodaysSales();
+
+        await fetchTodaysSales();
     } catch(err) {
         alert('Error voiding sale: ' + err.message);
     }
@@ -1234,6 +1862,22 @@ window.selectQRes = (id, name, bp) => {
     document.getElementById('qres-item-id').value = id;
     document.getElementById('qres-search').value = name;
     
+    const selectedItem = inventory.find(i => i.id === id);
+    const costPreview = document.getElementById('qres-cost-preview');
+    const stockDisplay = document.getElementById('qres-stock-display');
+    const unitCostInput = document.getElementById('qres-unit-cost');
+    const totalExpenseLabel = document.getElementById('qres-total-expense-label');
+    const qtyInput = document.getElementById('qres-qty');
+
+    if (costPreview) {
+        costPreview.classList.remove('hidden');
+        if (stockDisplay) stockDisplay.textContent = `Stock: ${selectedItem?.stock_quantity ?? 0}`;
+        const defaultBp = parseFloat(bp || selectedItem?.buying_price || 0);
+        if (unitCostInput) unitCostInput.value = defaultBp > 0 ? defaultBp : '';
+        const qty = parseInt(qtyInput?.value || 1);
+        if (totalExpenseLabel) totalExpenseLabel.textContent = `Total Expense to Log: Ksh ${(defaultBp * qty).toFixed(2)}`;
+    }
+    
     const children = inventory.filter(i => i.parent_id === id);
     const piecesSidebar = document.getElementById('qres-pieces-sidebar');
     const piecesContent = document.getElementById('qres-pieces-content');
@@ -1256,6 +1900,15 @@ window.selectQRes = (id, name, bp) => {
     qresResults.classList.add('hidden');
 };
 
+function updateQResCostPreview() {
+    const unitCost = parseFloat(document.getElementById('qres-unit-cost')?.value || 0);
+    const qty = parseInt(document.getElementById('qres-qty')?.value || 1);
+    const label = document.getElementById('qres-total-expense-label');
+    if (label) label.textContent = `Total Expense to Log: Ksh ${(unitCost * qty).toFixed(2)}`;
+}
+document.getElementById('qres-unit-cost')?.addEventListener('input', updateQResCostPreview);
+document.getElementById('qres-qty')?.addEventListener('input', updateQResCostPreview);
+
 document.addEventListener('click', e => {
     if (!e.target.closest('#qres-search') && !e.target.closest('#qres-results')) {
         qresResults.classList.add('hidden');
@@ -1269,7 +1922,16 @@ document.getElementById('btn-open-resource').addEventListener('click', async () 
     if (!itemId || qty < 1) return alert('Select an item and enter quantity.');
     
     const selectedItem = inventory.find(i => i.id === itemId);
-    const costPerUnit = selectedItem ? selectedItem.buying_price : 0;
+    const unitCostInput = document.getElementById('qres-unit-cost');
+    let costPerUnit = unitCostInput && unitCostInput.value !== '' ? parseFloat(unitCostInput.value) : (selectedItem ? selectedItem.buying_price : 0);
+
+    if (costPerUnit <= 0) {
+        const userCost = prompt(`Buying price for "${name}" is Ksh 0. Please enter the cost per unit to log expense accurately (e.g. 650 for a paper ream):`, "");
+        if (!userCost || isNaN(parseFloat(userCost)) || parseFloat(userCost) <= 0) {
+            return alert('Opening cancelled. A valid buying price / cost is required to keep profit calculations accurate.');
+        }
+        costPerUnit = parseFloat(userCost);
+    }
     
     const btn = document.getElementById('btn-open-resource');
     btn.disabled = true; btn.textContent = 'Opening...';
@@ -1318,8 +1980,10 @@ document.getElementById('btn-open-resource').addEventListener('click', async () 
         document.getElementById('qres-search').value = '';
         document.getElementById('qres-item-id').value = '';
         document.getElementById('qres-qty').value = 1;
+        document.getElementById('qres-cost-preview')?.classList.add('hidden');
         
-        alert('Resource opened: ' + name + ' x' + qty);
+        await checkTodaysOpenedResources();
+        alert('Resource opened: ' + name + ' x' + qty + ' (Expense logged: Ksh ' + (costPerUnit * qty).toFixed(2) + ')');
     } catch(err) {
         alert('Error: ' + err.message);
     } finally {
@@ -1449,7 +2113,7 @@ if (mainPayDebt) {
             return;
         }
         
-        const custId = document.getElementById('debt-sale-customer-select').value;
+        const custId = document.getElementById('debt-sale-customer-select').value || document.getElementById('pos-customer').value;
         if (!custId) {
             alert('Please select a customer for the debt sale.');
             return;
@@ -1463,7 +2127,7 @@ if (mainPayDebt) {
         if(!item || !amt) return alert('Select an item and enter amount');
 
         const cust = customers.find(c => c.id == custId);
-        if (!cust) return;
+        if (!cust) return alert('Customer not found.');
 
         if (!confirm('Log Ksh ' + amt + ' as Debt for ' + cust.name + '?')) return;
 
@@ -1473,23 +2137,24 @@ if (mainPayDebt) {
         try {
             let bc = item.buying_price || 0, kyo = 0;
             if(!document.getElementById('kyocera-fields').classList.contains('hidden')) { 
-                kyo = parseInt(document.getElementById('kyo-pages').value); 
-                bc = kyo * parseFloat(document.getElementById('kyo-cost-pp').value); 
+                kyo = parseInt(document.getElementById('kyo-pages').value) || 0; 
+                bc = kyo * parseFloat(document.getElementById('kyo-cost-pp').value || 0); 
             }
             if(item.name.toLowerCase().includes('binding') && !item.is_kyocera) {
                 bc = await calculateBindingCost(qty);
             }
-            const prof = amt - bc;
+            const prof = (item.is_kyocera || !document.getElementById('kyocera-fields').classList.contains('hidden') || item.name.toLowerCase().includes('binding')) ? (amt - bc) : (amt - (bc * qty));
 
             const { error: insertErr } = await supabase.from('sales_log').insert([{
                 item_id: item.id,
                 total_charged: amt,
                 calculated_qty: qty,
                 calculated_profit: prof,
-                cashier_id: currentUser.id,
-                payment_method: 'cash',
+                cashier_id: currentUser ? currentUser.id : null,
+                payment_method: 'debt',
                 status: 'debt',
-                customer_id: custId
+                customer_id: custId,
+                kyocera_pages: kyo
             }]);
             if (insertErr) throw insertErr;
 
@@ -1515,7 +2180,7 @@ if (mainPayDebt) {
 
             document.getElementById('pos-item-id').value = '';
             document.getElementById('pos-item-search').value = '';
-            document.getElementById('pos-qty').value = '';
+            document.getElementById('pos-qty').value = '1';
             document.getElementById('pos-total').value = '';
             document.getElementById('kyocera-fields').classList.add('hidden');
             
@@ -1540,7 +2205,7 @@ if (btnDebtCart) {
             return;
         }
         
-        const custId = document.getElementById('debt-sale-customer-select').value;
+        const custId = document.getElementById('debt-sale-customer-select').value || document.getElementById('pos-customer').value;
         if (!custId) {
             alert('Please select a customer for the debt sale.');
             return;
@@ -1553,7 +2218,7 @@ if (btnDebtCart) {
 
         const totalAmount = docCart.reduce((sum, item) => sum + item.total, 0);
         const cust = customers.find(c => c.id == custId);
-        if (!cust) return;
+        if (!cust) return alert('Customer not found.');
 
         if (!confirm('Log Ksh ' + totalAmount + ' as Debt for ' + cust.name + '?')) return;
 
@@ -1565,12 +2230,12 @@ if (btnDebtCart) {
                 item_id: item.id,
                 total_charged: item.total,
                 calculated_qty: item.qty,
-                calculated_profit: item.total - (item.buying_price * item.qty),
-                cashier_id: currentUser.id,
-                payment_method: 'cash',
+                calculated_profit: (item.kyocera_pages > 0 || item.name.toLowerCase().includes('binding')) ? (item.total - item.buying_price) : (item.total - (item.buying_price * item.qty)),
+                cashier_id: currentUser ? currentUser.id : null,
+                payment_method: 'debt',
                 status: 'debt',
                 customer_id: custId,
-                kyocera_pages: item.kyocera_pages
+                kyocera_pages: item.kyocera_pages || 0
             }));
 
             const { error: insertErr } = await supabase.from('sales_log').insert(inserts);
@@ -1806,3 +2471,15 @@ document.getElementById('btn-drawer-quick-add').addEventListener('click', async 
         btn.innerHTML = 'Save Product'; btn.disabled = false;
     }
 });
+
+// Sync debt customer dropdown with pos-customer dropdown
+const debtSaleCustEl = document.getElementById('debt-sale-customer-select');
+const posCustEl = document.getElementById('pos-customer');
+if (debtSaleCustEl && posCustEl) {
+    debtSaleCustEl.addEventListener('change', () => {
+        if (debtSaleCustEl.value) posCustEl.value = debtSaleCustEl.value;
+    });
+    posCustEl.addEventListener('change', () => {
+        if (posCustEl.value && isDebtMode) debtSaleCustEl.value = posCustEl.value;
+    });
+}

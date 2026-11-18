@@ -1,8 +1,10 @@
 import { supabase, currentUser, requireAuth } from './supabaseClient.js';
 import { showModal } from './uiHelper.js';
+import { checkAndNotifyLowStock } from './notificationHelper.js';
 requireAuth();
 
 let allInventory = [];
+let filterLowOnly = false;
 
 async function load() {
     const tb = document.getElementById('inv-tbody');
@@ -20,6 +22,7 @@ async function load() {
 
     const {data} = await supabase.from('inventory').select('*').order('name');
     allInventory = data || [];
+    checkAndNotifyLowStock(allInventory);
     renderTable();
 }
 
@@ -28,7 +31,34 @@ function renderTable() {
     const term = document.getElementById('inv-search').value.toLowerCase();
     const sortVal = document.getElementById('inv-sort').value;
 
+    // Count low stock items across all physical inventory
+    const lowStockCount = allInventory.filter(i => {
+        if (i.is_service) return false;
+        const qty = parseFloat(i.stock_quantity ?? 0);
+        const threshold = parseFloat(i.min_threshold || 5);
+        return qty <= threshold;
+    }).length;
+
+    const countBadge = document.getElementById('low-stock-count-badge');
+    if (countBadge) {
+        if (lowStockCount > 0) {
+            countBadge.textContent = lowStockCount;
+            countBadge.classList.remove('hidden');
+        } else {
+            countBadge.classList.add('hidden');
+        }
+    }
+
     let filtered = allInventory.filter(i => i.name.toLowerCase().includes(term) || (i.type && i.type.toLowerCase().includes(term)));
+
+    if (filterLowOnly) {
+        filtered = filtered.filter(i => {
+            if (i.is_service) return false;
+            const qty = parseFloat(i.stock_quantity ?? 0);
+            const threshold = parseFloat(i.min_threshold || 5);
+            return qty <= threshold;
+        });
+    }
 
     filtered.sort((a, b) => {
         if (sortVal === 'name-asc') return a.name.localeCompare(b.name);
@@ -37,6 +67,7 @@ function renderTable() {
         if (sortVal === 'sell-low') return (a.selling_price || 0) - (b.selling_price || 0);
         if (sortVal === 'buy-high') return (b.buying_price || 0) - (a.buying_price || 0);
         if (sortVal === 'buy-low') return (a.buying_price || 0) - (b.buying_price || 0);
+        if (sortVal === 'stock-low') return (a.stock_quantity || 0) - (b.stock_quantity || 0);
         return 0;
     });
 
@@ -55,6 +86,20 @@ function renderTable() {
             yieldText = `<span class="font-bold text-xs text-slate-500">${i.units_per_parent} pcs (Bulk)</span>`;
         }
 
+        // Format Stock Cell with Alert Badges
+        let stockCell = '-';
+        if (!i.is_service) {
+            const qty = parseFloat(i.stock_quantity ?? 0);
+            const threshold = parseFloat(i.min_threshold || 5);
+            if (qty <= 0) {
+                stockCell = `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-black bg-red-100 text-red-700 border border-red-300">Out of Stock (0)</span>`;
+            } else if (qty <= threshold) {
+                stockCell = `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-black bg-amber-100 text-amber-800 border border-amber-300">⚠️ Low (${qty})</span>`;
+            } else {
+                stockCell = `<span class="font-bold text-slate-800">${qty}</span>`;
+            }
+        }
+
         // Main Display Row
         html += `
         <tr class="hover:bg-slate-50 border-b border-slate-100 transition-colors">
@@ -62,7 +107,7 @@ function renderTable() {
             <td class="py-3 px-4"><span class="px-2 py-1 text-xs font-bold rounded ${i.is_service ? 'bg-slate-100 text-slate-600' : 'bg-blue-100 text-blue-700'}">${i.is_service ? 'Service' : i.type}</span></td>
             <td class="py-3 px-4 text-right">${i.buying_price}</td>
             <td class="py-3 px-4 text-right font-bold text-slate-800">${i.selling_price}</td>
-            <td class="py-3 px-4 text-center">${i.is_service ? '-' : i.stock_quantity}</td>
+            <td class="py-3 px-4 text-center">${stockCell}</td>
             <td class="py-3 px-4 text-center leading-tight">${i.is_service ? '-' : yieldText}</td>
             <td class="py-3 px-4 text-center">
                 <button class="bg-blue-50 hover:bg-blue-100 text-blue-700 px-3 py-1 rounded font-bold text-xs mr-2 transition-colors" onclick="toggleEdit('${i.id}')">Edit</button>
@@ -97,6 +142,10 @@ function renderTable() {
                         <label class="block text-xs font-bold mb-1 text-slate-600">Stock Qty</label>
                         <input type="number" id="edit-stock-${i.id}" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-shadow" value="${i.stock_quantity}">
                     </div>
+                    <div>
+                        <label class="block text-xs font-bold mb-1 text-slate-600">Min Alert Threshold</label>
+                        <input type="number" id="edit-threshold-${i.id}" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-shadow" value="${i.min_threshold ?? 5}">
+                    </div>
                     <div class="md:col-span-6 flex items-center justify-between border-t border-slate-100 pt-3 mt-1">
                         <div class="flex items-center">
                             <input type="checkbox" id="edit-svc-${i.id}" class="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500" ${i.is_service ? 'checked' : ''}>
@@ -104,7 +153,7 @@ function renderTable() {
                         </div>
                         <div class="flex gap-2">
                             <button onclick="openEditWizard('${i.id}')" class="px-4 py-2 bg-purple-50 text-purple-700 border border-purple-200 rounded-lg text-sm font-bold hover:bg-purple-100 transition-colors">Edit Hierarchy</button>
-                              <button onclick="toggleEdit('${i.id}')" class="px-4 py-2 bg-white border border-slate-300 rounded-lg text-sm font-bold text-slate-600 hover:bg-slate-50 transition-colors">Cancel</button>
+                            <button onclick="toggleEdit('${i.id}')" class="px-4 py-2 bg-white border border-slate-300 rounded-lg text-sm font-bold text-slate-600 hover:bg-slate-50 transition-colors">Cancel</button>
                             <button onclick="saveEdit('${i.id}')" class="px-4 py-2 bg-blue-600 rounded-lg text-sm font-bold text-white hover:bg-blue-700 transition-colors shadow-md shadow-blue-600/20">Save Changes</button>
                         </div>
                     </div>
@@ -128,13 +177,15 @@ window.toggleEdit = (id) => {
 };
 
 window.saveEdit = async (id) => {
+    const thresholdInput = document.getElementById(`edit-threshold-${id}`);
     const payload = {
         name: document.getElementById(`edit-name-${id}`).value,
         type: document.getElementById(`edit-type-${id}`).value,
         is_service: document.getElementById(`edit-svc-${id}`).checked,
         buying_price: parseFloat(document.getElementById(`edit-bp-${id}`).value || 0),
         selling_price: parseFloat(document.getElementById(`edit-sp-${id}`).value || 0),
-        stock_quantity: parseInt(document.getElementById(`edit-stock-${id}`).value || 0)
+        stock_quantity: parseInt(document.getElementById(`edit-stock-${id}`).value || 0),
+        min_threshold: thresholdInput ? parseInt(thresholdInput.value || 5) : 5
     };
     
     if(!payload.name) {
@@ -423,6 +474,19 @@ document.getElementById('btn-add-item').addEventListener('click', () => {
 load();
 document.getElementById('inv-search').addEventListener('input', renderTable);
 document.getElementById('inv-sort').addEventListener('change', renderTable);
+
+const btnFilterLow = document.getElementById('btn-filter-low');
+if (btnFilterLow) {
+    btnFilterLow.addEventListener('click', () => {
+        filterLowOnly = !filterLowOnly;
+        if (filterLowOnly) {
+            btnFilterLow.className = 'px-3 py-2 border-2 border-amber-500 bg-amber-500 text-white font-black text-sm rounded shadow transition flex items-center gap-1.5 whitespace-nowrap';
+        } else {
+            btnFilterLow.className = 'px-3 py-2 border border-amber-300 bg-amber-50 hover:bg-amber-100 text-amber-800 font-bold text-sm rounded transition flex items-center gap-1.5 whitespace-nowrap';
+        }
+        renderTable();
+    });
+}
 
 document.getElementById('btn-export-excel').addEventListener('click', async () => {
     const btn = document.getElementById('btn-export-excel');

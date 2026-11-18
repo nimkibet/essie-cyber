@@ -3,164 +3,231 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Admin | Essie Cyber</title>
+    <title>Admin Operations | Essie Cyber</title>
     <link rel="manifest" href="/manifest.json">
-    <meta name="theme-color" content="#1e293b">
+    <meta name="theme-color" content="#0f172a">
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <style>
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-track { background: #f1f5f9; }
         ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
         ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
-        .keypad-btn:active { transform: scale(0.95); background-color: #e2e8f0; }
-        .pin-dot { transition: all 0.2s ease; }
-    </style>
-
-    <style>
-        body { animation: fadeIn 0.2s ease-in-out; }
+        body { animation: fadeIn 0.15s ease-in-out; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(2px); } to { opacity: 1; transform: translateY(0); } }
     </style>
-
 </head>
-<body class="bg-gray-100 h-screen flex flex-col font-sans text-gray-800 overflow-hidden">
+<body class="bg-slate-100 min-h-screen flex flex-col font-sans text-slate-800">
 
-    <nav class="bg-slate-900 text-white shadow-md flex-shrink-0 relative z-50">
+    <!-- Top Navigation Bar (White & Blue Theme) -->
+    <nav class="bg-slate-900 text-white shadow-md flex-shrink-0 sticky top-0 z-40 border-b border-slate-800">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex items-center justify-between h-14">
-                <div class="flex items-center">
-                    <span class="text-xl font-bold text-blue-400">Essie Cyber</span>
+                <div class="flex items-center gap-2.5">
+                    <a href="/pos.html" class="flex items-center gap-2 hover:opacity-90 transition">
+                        <span class="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center font-black text-white text-sm shadow">EC</span>
+                        <span class="text-lg font-black tracking-tight text-white leading-none">Essie <span class="text-blue-400">Cyber</span></span>
+                    </a>
                 </div>
+
                 <!-- Mobile menu button -->
                 <div class="flex md:hidden">
-                    <button id="mobile-menu-btn" class="text-gray-300 hover:text-white focus:outline-none p-2">
-                        <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <button id="mobile-menu-btn" class="text-slate-300 hover:text-white focus:outline-none p-2 rounded-lg bg-slate-800 border border-slate-700">
+                        <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
                         </svg>
                     </button>
                 </div>
+
                 <!-- Desktop menu -->
-                <div class="hidden md:flex space-x-2">
-                    <a href="/pos.html" class="px-3 py-1.5 text-sm font-medium rounded bg-slate-700 hover:bg-slate-600">POS</a>
-                    <a href="/inventory.html" class="px-3 py-1.5 text-sm font-medium rounded bg-slate-700 hover:bg-slate-600">Inventory</a>
-                    <a href="/customers.html" class="px-3 py-1.5 text-sm font-medium rounded admin-only hidden bg-slate-700 hover:bg-slate-600">Customers</a>
-                    <a href="/users.html" class="px-3 py-1.5 text-sm font-medium rounded admin-only hidden bg-slate-700 hover:bg-slate-600">Users</a>
-                    <a href="/admin.html" class="px-3 py-1.5 text-sm font-medium rounded admin-only hidden bg-blue-600">Admin</a>
-                    <a href="/analytics.html" class="px-3 py-1.5 text-sm font-medium rounded admin-only hidden bg-slate-700 hover:bg-slate-600">Analytics</a>
-                    <a href="/settings.html" class="px-3 py-1.5 text-sm font-medium rounded bg-slate-700 hover:bg-slate-600">Settings</a>
-                    <a href="/profile.html" class="px-3 py-1.5 text-sm font-medium rounded bg-slate-700 hover:bg-slate-600">Profile</a><button id="btn-logout" class="px-3 py-1.5 text-sm font-medium rounded border border-slate-600 hover:bg-slate-800 text-red-400">Logout</button>
+                <div class="hidden md:flex items-center space-x-1.5">
+                    <a href="/pos.html" class="px-3 py-1.5 text-xs font-bold rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 transition">POS</a>
+                    <a href="/inventory.html" class="px-3 py-1.5 text-xs font-bold rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 transition">Inventory</a>
+                    <a href="/customers.html" class="px-3 py-1.5 text-xs font-bold rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 transition admin-only hidden">Customers</a>
+                    <a href="/users.html" class="px-3 py-1.5 text-xs font-bold rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 transition admin-only hidden">Users</a>
+                    <a href="/admin.html" class="px-3 py-1.5 text-xs font-bold rounded-xl bg-blue-600 text-white shadow transition admin-only hidden">Admin</a>
+                    <a href="/analytics.html" class="px-3 py-1.5 text-xs font-bold rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 transition admin-only hidden">Analytics</a>
+                    <a href="/settings.html" class="px-3 py-1.5 text-xs font-bold rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 transition admin-only hidden">Settings</a>
+                    <a href="/profile.html" class="px-3 py-1.5 text-xs font-bold rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 transition">Profile</a>
+                    <button id="btn-logout" class="px-3 py-1.5 text-xs font-bold rounded-xl border border-slate-700 hover:bg-red-950/50 hover:border-red-800 text-red-400 transition ml-2">Logout</button>
                 </div>
             </div>
         </div>
-        <!-- Mobile Menu (hidden by default) -->
-        <div id="mobile-menu" class="hidden md:hidden bg-slate-800 absolute w-full left-0 top-14 shadow-xl border-t border-slate-700">
-            <div class="px-4 pt-2 pb-4 space-y-2 flex flex-col">
-                <a href="/pos.html" class="block px-3 py-2 rounded text-base font-medium bg-slate-700 hover:bg-slate-600">POS</a>
-                <a href="/inventory.html" class="block px-3 py-2 rounded text-base font-medium bg-slate-700 hover:bg-slate-600">Inventory</a>
-                <a href="/customers.html" class="block px-3 py-2 rounded text-base font-medium admin-only hidden bg-slate-700 hover:bg-slate-600">Customers</a>
-                <a href="/users.html" class="block px-3 py-2 rounded text-base font-medium admin-only hidden bg-slate-700 hover:bg-slate-600">Users</a>
-                <a href="/admin.html" class="block px-3 py-2 rounded text-base font-medium admin-only hidden bg-blue-600">Admin</a>
-                <a href="/analytics.html" class="block px-3 py-2 rounded text-base font-medium admin-only hidden bg-slate-700 hover:bg-slate-600">Analytics</a>
-                <a href="/settings.html" class="block px-3 py-2 rounded text-base font-medium bg-slate-700 hover:bg-slate-600">Settings</a>
-                <a href="/profile.html" class="block px-3 py-2 rounded text-base font-medium bg-slate-700 hover:bg-slate-600">Profile</a><button id="btn-logout-mobile" class="w-full text-left block px-3 py-2 rounded text-base font-medium text-red-400 hover:bg-slate-700">Logout</button>
-            </div>
+
+        <!-- Mobile Menu -->
+        <div id="mobile-menu" class="hidden md:hidden bg-slate-900 border-t border-slate-800 p-3 space-y-1.5">
+            <a href="/pos.html" class="block px-3 py-2 rounded-xl text-xs font-bold bg-slate-800 text-slate-200">POS</a>
+            <a href="/inventory.html" class="block px-3 py-2 rounded-xl text-xs font-bold bg-slate-800 text-slate-200">Inventory</a>
+            <a href="/customers.html" class="block px-3 py-2 rounded-xl text-xs font-bold bg-slate-800 text-slate-200 admin-only hidden">Customers</a>
+            <a href="/users.html" class="block px-3 py-2 rounded-xl text-xs font-bold bg-slate-800 text-slate-200 admin-only hidden">Users</a>
+            <a href="/admin.html" class="block px-3 py-2 rounded-xl text-xs font-bold bg-blue-600 text-white admin-only hidden">Admin</a>
+            <a href="/analytics.html" class="block px-3 py-2 rounded-xl text-xs font-bold bg-slate-800 text-slate-200 admin-only hidden">Analytics</a>
+            <a href="/settings.html" class="block px-3 py-2 rounded-xl text-xs font-bold bg-slate-800 text-slate-200 admin-only hidden">Settings</a>
+            <a href="/profile.html" class="block px-3 py-2 rounded-xl text-xs font-bold bg-slate-800 text-slate-200">Profile</a>
+            <button id="btn-logout-mobile" class="w-full text-left block px-3 py-2 rounded-xl text-xs font-bold text-red-400 hover:bg-slate-800">Logout</button>
         </div>
     </nav>
+
+    <!-- Header Financial Metrics Ribbon -->
+    <div class="bg-slate-900 text-white border-b border-slate-800 shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 py-4 flex flex-col md:flex-row items-center justify-between gap-4">
+            <div class="grid grid-cols-3 gap-3 w-full md:w-auto flex-1 max-w-3xl">
+                <div class="p-3 bg-slate-800/80 rounded-xl border border-slate-700/80 text-center">
+                    <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Gross Sales</div>
+                    <div id="hdr-gross" class="text-xl sm:text-2xl font-black text-white mt-0.5">KSh 0.00</div>
+                </div>
+                <div class="p-3 bg-slate-800/80 rounded-xl border border-slate-700/80 text-center">
+                    <div class="text-[10px] font-bold text-red-400 uppercase tracking-wider">Total Expenses</div>
+                    <div id="hdr-expenses" class="text-xl sm:text-2xl font-black text-red-400 mt-0.5">KSh 0.00</div>
+                </div>
+                <div class="p-3 bg-slate-800/80 rounded-xl border border-slate-700/80 text-center">
+                    <div class="text-[10px] font-bold text-emerald-400 uppercase tracking-wider">Net Profit</div>
+                    <div id="hdr-net" class="text-xl sm:text-2xl font-black text-emerald-400 mt-0.5">KSh 0.00</div>
+                </div>
+            </div>
+            <div class="flex items-center gap-2">
+                <span class="text-xs font-bold text-slate-400 uppercase">Period:</span>
+                <select id="admin-period" class="bg-slate-800 text-white font-bold border border-slate-700 rounded-xl px-3 py-2 text-xs focus:ring-2 focus:ring-blue-500 outline-none">
+                    <option value="today">Today</option>
+                    <option value="month">This Month</option>
+                </select>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <main class="flex-1 max-w-7xl mx-auto w-full p-4 sm:p-6 space-y-6">
+
+        <!-- 1. Resource Management & Opening Consumables -->
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-slate-100 gap-2 mb-4">
+                <div>
+                    <h2 class="text-lg font-black text-slate-900 flex items-center gap-2">
+                        <span class="text-blue-600">📦</span> Consumable Resources & Opening Stock
+                    </h2>
+                    <p class="text-xs text-slate-500 font-medium">
+                        Unpack bulk cyber consumables (e.g., A4 Paper Reams, Laminating Sheets, Toner) and verify cost values to protect profit calculations.
+                    </p>
+                </div>
+            </div>
+
+            <!-- Open Item Input Bar -->
+            <div class="grid grid-cols-1 sm:grid-cols-6 gap-3 items-end mb-6 bg-slate-50 p-4 rounded-2xl border border-slate-200">
+                <div class="sm:col-span-3">
+                    <label class="block text-xs font-bold text-slate-600 uppercase mb-1">Select Consumable Inventory Item</label>
+                    <div class="relative">
+                        <input type="text" id="res-item-search" class="w-full pl-3 pr-3 py-2.5 bg-white border border-slate-200 rounded-xl font-bold text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Search bulk item (e.g. A4 Paper)..." autocomplete="off">
+                        <input type="hidden" id="res-item-id">
+                        <div id="res-search-results" class="absolute z-20 w-full bg-white border border-slate-200 mt-1 rounded-xl shadow-xl hidden max-h-48 overflow-y-auto"></div>
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-600 uppercase mb-1">Quantity Opened</label>
+                    <input type="number" id="res-qty" class="w-full bg-white border border-slate-200 rounded-xl px-3 py-2.5 font-bold text-sm" value="1" min="1">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-600 uppercase mb-1">Expense Cost (KSh)</label>
+                    <input type="number" id="res-cost" class="w-full bg-white border border-slate-200 rounded-xl px-3 py-2.5 font-bold text-sm text-blue-700" placeholder="e.g. 650">
+                </div>
+                <div>
+                    <button id="btn-open-res" class="w-full bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-bold py-2.5 rounded-xl text-xs transition shadow-sm">
+                        Confirm & Open
+                    </button>
+                </div>
+            </div>
+
+            <!-- Active Resources Table -->
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-sm">
+                    <thead class="bg-slate-50 border-b border-slate-200 text-slate-600 font-bold text-xs uppercase tracking-wider">
+                        <tr>
+                            <th class="py-3 px-4">Opened Resource</th>
+                            <th class="py-3 px-4 text-right">Expense Cost (KSh)</th>
+                            <th class="py-3 px-4">Opened Date</th>
+                            <th class="py-3 px-4 text-center">Status & Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="res-tbody" class="divide-y divide-slate-100 font-medium"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- 2. Fixed Overheads -->
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
+            <h2 class="text-lg font-black text-slate-900 mb-1 flex items-center gap-2">
+                <span class="text-blue-600">⚡</span> Monthly Fixed Overheads
+            </h2>
+            <p class="text-xs text-slate-500 font-medium mb-4">Rent, electricity, Wi-Fi internet, and other recurring fixed cyber running costs.</p>
+
+            <div class="grid grid-cols-2 sm:grid-cols-5 gap-3 items-end">
+                <div>
+                    <label class="block text-xs font-bold text-slate-600 uppercase mb-1">Rent (KSh)</label>
+                    <input type="number" id="ov-rent" class="w-full border border-slate-200 rounded-xl px-3 py-2 font-bold text-sm">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-600 uppercase mb-1">Electricity (KSh)</label>
+                    <input type="number" id="ov-elec" class="w-full border border-slate-200 rounded-xl px-3 py-2 font-bold text-sm">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-600 uppercase mb-1">Wi-Fi Internet (KSh)</label>
+                    <input type="number" id="ov-wifi" class="w-full border border-slate-200 rounded-xl px-3 py-2 font-bold text-sm">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-600 uppercase mb-1">Other Fixed (KSh)</label>
+                    <input type="number" id="ov-other" class="w-full border border-slate-200 rounded-xl px-3 py-2 font-bold text-sm">
+                </div>
+                <div>
+                    <button id="btn-save-ov" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 rounded-xl text-xs transition shadow-sm">
+                        Save Overheads
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 3. Shift Wages Quick Overview & Link -->
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-slate-100 gap-2 mb-4">
+                <div>
+                    <h2 class="text-lg font-black text-slate-900 flex items-center gap-2">
+                        <span class="text-emerald-600">💵</span> Cashier Shift Wages
+                    </h2>
+                    <p class="text-xs text-slate-500 font-medium">Daily cashier wages assigned for active shifts.</p>
+                </div>
+                <a href="/users.html" class="px-4 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 rounded-xl text-xs font-black transition flex items-center gap-1.5 shadow-sm border border-emerald-200 self-start sm:self-auto">
+                    <span>📋</span> View Full Cashier Wage History & Payouts &rarr;
+                </a>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-sm">
+                    <thead class="bg-slate-50 border-b border-slate-200 text-slate-600 font-bold text-xs uppercase tracking-wider">
+                        <tr>
+                            <th class="py-3 px-4">Shift Date</th>
+                            <th class="py-3 px-4">Cashier Staff</th>
+                            <th class="py-3 px-4 text-right">Assigned Wage (KSh)</th>
+                            <th class="py-3 px-4 text-center">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="wage-tbody" class="divide-y divide-slate-100 font-medium"></tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+
+    <script type="module" src="/js/admin.js"></script>
+
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             const btn = document.getElementById('mobile-menu-btn');
             const menu = document.getElementById('mobile-menu');
-            if(btn && menu) {
-                btn.addEventListener('click', () => {
-                    menu.classList.toggle('hidden');
-                });
-            }
+            if(btn && menu) btn.addEventListener('click', () => menu.classList.toggle('hidden'));
             const logoutMobile = document.getElementById('btn-logout-mobile');
-            if(logoutMobile) {
-                logoutMobile.addEventListener('click', () => {
-                    document.getElementById('btn-logout')?.click();
-                });
-            }
+            if(logoutMobile) logoutMobile.addEventListener('click', () => document.getElementById('btn-logout')?.click());
         });
-    </script>
 
-    <main class="flex-1 overflow-y-auto bg-gray-50">
-        <div class="bg-slate-900 text-white shadow-md">
-            <div class="max-w-7xl mx-auto flex overflow-x-auto">
-                <div class="flex-1 py-4 px-6 text-center border-r border-slate-700">
-                    <div class="text-xs font-bold text-slate-400 mb-1 uppercase">Gross Sales</div><div id="hdr-gross" class="text-2xl font-bold">Ksh 0.00</div>
-                </div>
-                <div class="flex-1 py-4 px-6 text-center border-r border-slate-700">
-                    <div class="text-xs font-bold text-red-400 mb-1 uppercase">Expenses</div><div id="hdr-expenses" class="text-2xl font-bold text-red-400">Ksh 0.00</div>
-                </div>
-                <div class="flex-1 py-4 px-6 text-center border-r border-slate-700">
-                    <div class="text-xs font-bold text-emerald-400 mb-1 uppercase">Net Profit</div><div id="hdr-net" class="text-2xl font-bold text-emerald-400">Ksh 0.00</div>
-                </div>
-                <div class="py-4 px-6 flex items-center gap-3">
-                    <span class="text-sm font-semibold">Period:</span><select id="admin-period" class="bg-slate-800 border rounded px-3 py-1.5 text-sm"><option value="today">Today</option><option value="month">This Month</option></select>
-                </div>
-            </div>
-        </div>
-
-        <div class="max-w-7xl mx-auto p-6 space-y-8">
-            <!-- Resources -->
-            <div class="bg-white rounded-xl shadow border p-5">
-                <h2 class="text-lg font-bold mb-4 border-b pb-2">Resource Management (Amortized)</h2>
-                <div class="grid grid-cols-1 sm:grid-cols-5 gap-3 items-end mb-6 bg-slate-50 p-4 rounded border">
-    <div class="sm:col-span-2">
-        <label class="block text-sm font-semibold mb-1">Inventory Item</label>
-        <div class="relative"><div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><svg class="h-4 w-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg></div><input type="text" id="res-item-search" class="w-full pl-9 pr-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Search item..." autocomplete="off"><input type="hidden" id="res-item-id"><div id="res-search-results" class="absolute z-10 w-full bg-white border border-slate-200 mt-1 rounded-md shadow-lg hidden max-h-48 overflow-y-auto"></div></div>
-    </div>
-    <div>
-        <label class="block text-sm font-semibold mb-1">Quantity</label>
-        <input type="number" id="res-qty" class="w-full border rounded px-3 py-2" value="1" min="1">
-    </div>
-    <div>
-        <label class="block text-sm font-semibold mb-1">Est. Cost</label>
-        <input type="number" id="res-cost" class="w-full border rounded px-3 py-2 bg-slate-200" placeholder="Auto" readonly>
-    </div>
-    <div>
-        <button id="btn-open-res" class="w-full bg-blue-600 text-white font-bold py-2 rounded text-sm">Open Item</button>
-    </div>
-</div>
-                <table class="w-full text-left text-sm"><thead class="bg-slate-50"><tr><th class="py-2 px-3">Item</th><th class="py-2 px-3 text-right">Cost</th><th class="py-2 px-3">Date</th><th class="py-2 px-3 text-center">Action</th></tr></thead><tbody id="res-tbody"></tbody></table>
-            </div>
-
-            <!-- Overheads -->
-            <div class="bg-white rounded-xl shadow border border-l-4 border-l-red-500 p-5">
-                <h2 class="text-lg font-bold text-red-700 mb-4 border-b pb-2">Fixed Overheads</h2>
-                <div class="grid grid-cols-2 sm:flex gap-3 items-end">
-                    <div class="flex-1"><label class="block text-xs font-semibold mb-1">Rent</label><input type="number" id="ov-rent" class="w-full border rounded px-3 py-2"></div>
-                    <div class="flex-1"><label class="block text-xs font-semibold mb-1">Electricity</label><input type="number" id="ov-elec" class="w-full border rounded px-3 py-2"></div>
-                    <div class="flex-1"><label class="block text-xs font-semibold mb-1">Internet</label><input type="number" id="ov-wifi" class="w-full border rounded px-3 py-2"></div>
-                    <div class="flex-1"><label class="block text-xs font-semibold mb-1">Other</label><input type="number" id="ov-other" class="w-full border rounded px-3 py-2"></div>
-                    <div><button id="btn-save-ov" class="bg-blue-600 text-white font-bold px-6 py-2 rounded">Save</button></div>
-                </div>
-            </div>
-
-            <!-- Wages -->
-            <div class="bg-white rounded-xl shadow border border-l-4 border-l-amber-500 p-5">
-                <h2 class="text-lg font-bold text-slate-600 mb-4 border-b pb-2">Shift Wages</h2>
-                <table class="w-full text-left text-sm mb-4"><thead class="bg-slate-50"><tr><th class="py-2 px-3">Date</th><th class="py-2 px-3">Staff</th><th class="py-2 px-3 text-right">Wage (Ksh)</th><th class="py-2 px-3 text-center">Action</th></tr></thead><tbody id="wage-tbody"></tbody></table>
-            </div>
-        </div>
-    </main>
-    <script type="module" src="/js/admin.js"></script>
-
-    <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
-                navigator.serviceWorker.register('/sw.js')
-                    .then(reg => {
-                        console.log('[SW] Registered, scope:', reg.scope);
-                        // Check for updates when the page loads
-                        reg.update();
-                    })
-                    .catch(err => console.warn('[SW] Registration failed:', err));
+                navigator.serviceWorker.register('/sw.js').then(reg => reg.update()).catch(err => console.warn(err));
             });
         }
     </script>
-</body></html>
-
-
-
+</body>
+</html>

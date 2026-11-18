@@ -106,11 +106,25 @@ async function load() {
     // Calculate Expenses
     currentTotalExpenses = 0;
     
-    // Always include daily POS expenses
-    currentDailyExpenses.forEach(e => currentTotalExpenses += (e.amount || 0));
+    // Separate operational expenses from wage expenses to avoid double counting with attendance_log
+    const operationalExpenses = currentDailyExpenses.filter(e => {
+        const desc = (e.description || '').toLowerCase();
+        return !desc.startsWith('wage') && !desc.startsWith('[shift wage]');
+    });
+    const directWageExpenses = currentDailyExpenses.filter(e => {
+        const desc = (e.description || '').toLowerCase();
+        return desc.startsWith('wage') || desc.startsWith('[shift wage]');
+    });
 
-    // Attendance wages are also always included as fixed expenses
-    currentAttendanceWages.forEach(w => currentTotalExpenses += (w.wage_assigned || 0));
+    operationalExpenses.forEach(e => currentTotalExpenses += (e.amount || 0));
+
+    // Attendance wages are included from attendance_log
+    if (currentAttendanceWages.length > 0) {
+        currentAttendanceWages.forEach(w => currentTotalExpenses += (w.wage_assigned || 0));
+    } else {
+        // Fallback to direct wage expenses if no attendance log rows exist for the period
+        directWageExpenses.forEach(e => currentTotalExpenses += (e.amount || 0));
+    }
 
     if (includeBulk) {
         currentResources.forEach(r => currentTotalExpenses += (r.cost || 0));
@@ -169,19 +183,26 @@ async function load() {
     let uiWages = 0, uiOtherExp = 0, uiResources = 0, uiFixed = 0;
     let uiDeductions = [];
 
-    currentDailyExpenses.forEach(e => {
+    operationalExpenses.forEach(e => {
         const desc = e.description || 'Other';
-        if (desc.toLowerCase().includes('wage')) uiWages += (e.amount || 0);
-        else uiOtherExp += (e.amount || 0);
+        uiOtherExp += (e.amount || 0);
         uiDeductions.push({ item: desc, cost: (e.amount || 0) });
     });
 
-    currentAttendanceWages.forEach(w => {
-        const wageAmt = w.wage_assigned || 0;
-        uiWages += wageAmt;
-        const name = w.users?.username || 'User';
-        uiDeductions.push({ item: `[Shift Wage] ${name}`, cost: wageAmt });
-    });
+    if (currentAttendanceWages.length > 0) {
+        currentAttendanceWages.forEach(w => {
+            const wageAmt = w.wage_assigned || 0;
+            uiWages += wageAmt;
+            const name = w.users?.username || 'User';
+            uiDeductions.push({ item: `[Shift Wage] ${name}`, cost: wageAmt });
+        });
+    } else {
+        directWageExpenses.forEach(e => {
+            const wageAmt = e.amount || 0;
+            uiWages += wageAmt;
+            uiDeductions.push({ item: e.description || 'Wage', cost: wageAmt });
+        });
+    }
 
     if (includeBulk) {
         currentResources.forEach(r => {

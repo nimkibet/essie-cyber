@@ -97,7 +97,12 @@
                     <option value="sell-low">Selling Price (Low-High)</option>
                     <option value="buy-high">Buying Price (High-Low)</option>
                     <option value="buy-low">Buying Price (Low-High)</option>
+                    <option value="stock-low">Lowest Stock First</option>
                 </select>
+                <button id="btn-filter-low" class="px-3 py-2 border border-amber-300 bg-amber-50 hover:bg-amber-100 text-amber-800 font-bold text-sm rounded transition flex items-center gap-1.5 whitespace-nowrap">
+                    <span>⚠️ Low Stock</span>
+                    <span id="low-stock-count-badge" class="hidden px-1.5 py-0.5 bg-amber-200 text-amber-900 rounded-full text-xs font-black">0</span>
+                </button>
                 <button id="btn-export-excel" class="bg-green-600 text-white px-4 py-2 rounded font-bold hover:bg-green-700 whitespace-nowrap">Export Excel</button>
                 <button id="btn-add-item" class="bg-blue-600 text-white px-4 py-2 rounded font-bold hover:bg-blue-700 whitespace-nowrap">+ Add New</button>
             </div>

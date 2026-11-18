@@ -1,4 +1,7 @@
+import { playPopChime } from './notificationHelper.js';
+
 export function showModal(title, contentHtml, onConfirm, confirmText = 'Confirm', widthClass = 'max-w-md') {
+    playPopChime();
     // Remove existing modal if any
     const existing = document.getElementById('essie-modal');
     if (existing) existing.remove();
