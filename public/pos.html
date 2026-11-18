@@ -413,93 +413,104 @@
         </div><!-- end max-w container -->
     </main>
 
-    <!-- Shift Consumables Popup Modal -->
-    <div id="modal-shift-consumables" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm hidden p-4">
-        <div class="bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden border border-slate-200">
-            <div class="px-6 py-4 bg-slate-900 text-white flex justify-between items-center">
+    <!-- Shift Consumables & Morning Openings Popup Modal -->
+    <div id="modal-shift-consumables" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm hidden p-3 sm:p-4">
+        <div class="bg-white rounded-3xl shadow-2xl w-full max-w-lg max-h-[92vh] flex flex-col overflow-hidden border border-slate-200">
+            <div class="px-6 py-4 bg-slate-900 text-white flex justify-between items-center flex-shrink-0">
                 <h3 class="text-base sm:text-lg font-black flex items-center gap-2">
-                    <span class="text-amber-400 text-xl">☀️</span> Shift Consumables Check
+                    <span class="text-amber-400 text-xl">☀️</span> Morning Shift Opening & Stock Check
                 </h3>
                 <button id="btn-close-shift-res-modal" class="text-slate-400 hover:text-white font-bold text-2xl leading-none">&times;</button>
             </div>
-            <div class="p-6 space-y-4">
-                <div class="p-4 bg-amber-50 border border-amber-200 rounded-2xl text-amber-900 text-sm">
-                    <span class="font-black text-amber-950 block mb-1">⚠️ No Consumables Logged as Opened Today</span>
+            
+            <div class="p-5 sm:p-6 space-y-4 overflow-y-auto flex-1">
+                <div class="p-3.5 bg-amber-50 border border-amber-200 rounded-2xl text-amber-900 text-xs sm:text-sm">
+                    <span class="font-black text-amber-950 block mb-1">☀️ Start of Day Shift Preparation</span>
                     <span class="text-xs text-amber-800 leading-relaxed block">
-                        If you are opening or using bulk stock today (e.g., A4 Paper Ream, Toner Cartridge, Laminating Pouches), please record it now so your shift profit calculations remain 100% accurate!
+                        Record daily bulk stock opened (e.g. A4 Paper Ream, Toner) and/or disburse cashier daily wage/advance so profits and attendance reconcile automatically.
                     </span>
                 </div>
                 
-                <div class="space-y-3">
+                <!-- Section 1: Bulk Consumable Opening -->
+                <div class="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-3">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs font-black uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
+                            <span>📦</span> Open Bulk Consumable
+                        </span>
+                        <span class="text-[10px] font-bold text-slate-500">Optional if none opened</span>
+                    </div>
                     <div>
-                        <label class="block text-xs font-black text-slate-700 uppercase mb-1">Select Bulk Consumable</label>
-                        <select id="modal-shift-res-select" class="w-full border-2 border-slate-200 rounded-xl px-3.5 py-2.5 text-sm font-bold text-slate-800 focus:border-blue-500 focus:outline-none bg-slate-50">
-                            <option value="">-- Choose Consumable --</option>
+                        <label class="block text-[11px] font-bold text-slate-600 mb-1">Select Consumable</label>
+                        <select id="modal-shift-res-select" class="w-full border-2 border-slate-200 rounded-xl px-3 py-2 text-sm font-bold text-slate-800 focus:border-blue-500 focus:outline-none bg-white">
+                            <option value="">-- No Consumable to Open Now --</option>
                         </select>
                     </div>
-                    <div id="modal-shift-res-preview" class="hidden p-3.5 bg-blue-50 border border-blue-200 rounded-xl text-xs space-y-1">
+                    <div id="modal-shift-res-preview" class="hidden p-3 bg-blue-50 border border-blue-200 rounded-xl text-xs space-y-1">
                         <div class="flex justify-between font-black text-blue-900">
-                            <span>Cost / Buying Price:</span>
+                            <span>Buying / Ream Price:</span>
                             <span id="modal-shift-res-cost-display">Ksh 0.00</span>
                         </div>
                         <div class="text-slate-600 text-[11px] font-semibold" id="modal-shift-res-yield-display">Yield: -</div>
                     </div>
                     <div class="grid grid-cols-2 gap-3">
                         <div>
-                            <label class="block text-xs font-black text-slate-700 uppercase mb-1">Quantity Opened</label>
-                            <input type="number" id="modal-shift-res-qty" value="1" min="1" class="w-full border-2 border-slate-200 rounded-xl px-3.5 py-2.5 text-sm font-black text-slate-800 focus:border-blue-500 focus:outline-none">
+                            <label class="block text-[11px] font-bold text-slate-600 mb-1">Quantity Opened</label>
+                            <input type="number" id="modal-shift-res-qty" value="1" min="1" class="w-full border-2 border-slate-200 rounded-xl px-3 py-2 text-sm font-black text-slate-800 focus:border-blue-500 focus:outline-none bg-white">
                         </div>
                         <div>
-                            <label class="block text-xs font-black text-slate-700 uppercase mb-1">Unit Cost (Ksh)</label>
-                            <input type="number" id="modal-shift-res-cost" value="0" min="0" step="any" class="w-full border-2 border-slate-200 rounded-xl px-3.5 py-2.5 text-sm font-black text-slate-800 focus:border-blue-500 focus:outline-none">
+                            <label class="block text-[11px] font-bold text-slate-600 mb-1">Unit Cost (Ksh)</label>
+                            <input type="number" id="modal-shift-res-cost" value="0" min="0" step="any" class="w-full border-2 border-slate-200 rounded-xl px-3 py-2 text-sm font-black text-slate-800 focus:border-blue-500 focus:outline-none bg-white">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Section 2: Cashier Daily Wage / Advance (Morning Shift Payment) -->
+                <div class="p-4 bg-emerald-50/70 border border-emerald-200 rounded-2xl space-y-3">
+                    <div class="flex items-center justify-between">
+                        <label class="flex items-center gap-2 cursor-pointer select-none">
+                            <input type="checkbox" id="modal-shift-wage-enable" class="w-4 h-4 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500">
+                            <span class="text-xs sm:text-sm font-black text-emerald-950">Record Cashier Daily Wage / Advance</span>
+                        </label>
+                        <span class="text-[10px] font-black uppercase tracking-wider text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-md">Admin / Shift</span>
+                    </div>
+
+                    <div id="modal-shift-wage-body" class="hidden space-y-3 pt-2 border-t border-emerald-200/60">
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-[11px] font-bold text-slate-700 mb-1">Cashier on Duty</label>
+                                <select id="modal-shift-wage-user" class="w-full border-2 border-slate-200 rounded-xl px-3 py-2 text-sm font-bold text-slate-800 bg-white focus:outline-none focus:border-emerald-500">
+                                    <option value="">-- Select Cashier --</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-[11px] font-bold text-slate-700 mb-1">Wage Amount (KSh)</label>
+                                <input type="number" id="modal-shift-wage-amt" class="w-full border-2 border-slate-200 rounded-xl px-3 py-2 text-sm font-black text-emerald-800 bg-white focus:outline-none focus:border-emerald-500" placeholder="e.g. 400" value="400">
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-[11px] font-bold text-slate-700 mb-1">Payout Channel</label>
+                                <select id="modal-shift-wage-method" class="w-full border-2 border-slate-200 rounded-xl px-3 py-2 text-sm font-bold text-slate-800 bg-white focus:outline-none focus:border-emerald-500">
+                                    <option value="cash">Cash Drawer (Physical Cash)</option>
+                                    <option value="mpesa">M-Pesa (Till / Direct)</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-[11px] font-bold text-slate-700 mb-1">Wage Note / Shift</label>
+                                <input type="text" id="modal-shift-wage-note" class="w-full border-2 border-slate-200 rounded-xl px-3 py-2 text-sm font-semibold text-slate-800 bg-white focus:outline-none focus:border-emerald-500" placeholder="Shift Wage" value="Shift Wage">
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
-            <div class="px-6 py-4 bg-slate-50 border-t border-slate-100 flex flex-col sm:flex-row justify-end gap-2.5">
+
+            <div class="px-6 py-4 bg-slate-50 border-t border-slate-100 flex flex-col sm:flex-row justify-end gap-2.5 flex-shrink-0">
                 <button id="btn-dismiss-shift-res" class="px-4 py-2.5 text-slate-600 hover:bg-slate-200 text-xs sm:text-sm font-bold rounded-xl transition">
-                    Dismiss / Already Opened
+                    Dismiss / Already Setup
                 </button>
                 <button id="btn-submit-shift-res" class="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm font-black rounded-xl shadow-md shadow-blue-600/20 transition">
-                    ☀️ Open Stock & Record
+                    ☀️ Save Morning Shift Record
                 </button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Online Services Preset Modal -->
-    <div id="modal-online-services" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm hidden p-4">
-        <div class="bg-white rounded-3xl shadow-2xl w-full max-w-2xl overflow-hidden border border-slate-200">
-            <div class="px-6 py-4 bg-slate-900 text-white flex justify-between items-center">
-                <h3 class="text-base sm:text-lg font-black flex items-center gap-2">
-                    <span class="text-blue-400 text-xl">🌐</span> Online Cyber Services
-                </h3>
-                <button id="btn-close-online-srv" class="text-slate-400 hover:text-white font-bold text-2xl leading-none">&times;</button>
-            </div>
-            <div class="p-6">
-                <p class="text-xs text-slate-500 mb-3.5 font-bold">Pick an online service preset or enter custom service details. Automatically records under Online Services!</p>
-                <div class="grid grid-cols-2 sm:grid-cols-3 gap-2.5 max-h-[45vh] overflow-y-auto pr-1" id="online-srv-presets-grid">
-                    <!-- Populated dynamically via JS -->
-                </div>
-                
-                <div class="mt-4 pt-4 border-t border-slate-200 flex flex-col sm:flex-row gap-3 items-end">
-                    <div class="flex-1 w-full">
-                        <label class="block text-xs font-black text-slate-600 uppercase mb-1">Service Name / Notes</label>
-                        <input type="text" id="online-srv-name-input" class="w-full border-2 border-slate-200 rounded-xl px-3.5 py-2 text-sm font-bold text-slate-900 focus:outline-none focus:border-blue-500" placeholder="e.g. Good Conduct Application">
-                    </div>
-                    <div class="w-full sm:w-36">
-                        <label class="block text-xs font-black text-slate-600 uppercase mb-1">Amount (KSh)</label>
-                        <input type="number" id="online-srv-amt-input" class="w-full border-2 border-blue-200 rounded-xl px-3.5 py-2 text-sm font-black text-blue-700 focus:outline-none focus:border-blue-500" placeholder="KSh 0">
-                    </div>
-                    <div class="flex gap-2 w-full sm:w-auto">
-                        <button id="btn-online-srv-quick-log" class="flex-1 sm:flex-none px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-black text-xs sm:text-sm rounded-xl shadow whitespace-nowrap">
-                            Log Sale
-                        </button>
-                        <button id="btn-online-srv-add-cart" class="flex-1 sm:flex-none px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs sm:text-sm rounded-xl border border-slate-300 whitespace-nowrap">
-                            + Add to Cart
-                        </button>
-                    </div>
-                </div>
             </div>
         </div>
     </div>

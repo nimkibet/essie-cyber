@@ -175,7 +175,7 @@ async function loadData() {
     await checkTodaysOpenedResources();
 
     // ── Low Stock Notification & UI Indicator ──
-    currentLowStockItems = checkAndNotifyLowStock(inventory) || [];
+    currentLowStockItems = checkAndNotifyLowStock(inventory, true) || [];
     updateLowStockUI(currentLowStockItems);
 }
 
@@ -227,6 +227,23 @@ document.getElementById('btn-close-low-stock')?.addEventListener('click', () => 
 });
 
 // ── Shift Consumables Popup Modal & Status Check ────────────────────────────
+let shiftWageUsersLoaded = false;
+async function populateShiftWageUsers() {
+    const userSel = document.getElementById('modal-shift-wage-user');
+    if (!userSel) return;
+    try {
+        const { data: userList } = await supabase.from('users').select('id, username, role').order('username');
+        const cashiers = (userList || []).filter(u => u.role === 'cashier' || u.role !== 'admin');
+        const finalUsers = cashiers.length > 0 ? cashiers : (userList || []);
+        userSel.innerHTML = '<option value="">-- Select Cashier on Duty --</option>' +
+            finalUsers.map(u => `<option value="${u.id}">${u.username} (${u.role || 'cashier'})</option>`).join('');
+        shiftWageUsersLoaded = true;
+    } catch (e) {
+        console.warn('Could not load cashiers for shift wage:', e);
+    }
+}
+
+// ── Shift Consumables & Morning Shift Opening Popup Modal ───────────────────
 function openShiftConsumablesModal() {
     playPopChime();
     const modal = document.getElementById('modal-shift-consumables');
@@ -242,7 +259,7 @@ function openShiftConsumablesModal() {
 
     const candidateList = bulkCandidates.length > 0 ? bulkCandidates : inventory.filter(i => !i.is_service);
 
-    select.innerHTML = '<option value="">-- Choose Consumable to Open --</option>' +
+    select.innerHTML = '<option value="">-- No Consumable to Open Now --</option>' +
         candidateList.map(i => `
             <option value="${i.id}" data-name="${i.name}" data-cost="${i.buying_price || 0}" data-yield="${i.units_per_parent || i.stock_quantity || '-'}">
                 ${i.name} (Cost: Ksh ${i.buying_price || 0})
@@ -265,6 +282,18 @@ function openShiftConsumablesModal() {
         if (yieldDisp) yieldDisp.textContent = `Yield / Units inside: ${yieldVal} pcs`;
         document.getElementById('modal-shift-res-preview')?.classList.remove('hidden');
     };
+
+    // Setup cashier wage toggle and options
+    const wageToggle = document.getElementById('modal-shift-wage-enable');
+    const wageBody = document.getElementById('modal-shift-wage-body');
+    if (wageToggle && wageBody) {
+        wageToggle.onchange = () => {
+            wageBody.classList.toggle('hidden', !wageToggle.checked);
+        };
+    }
+    if (!shiftWageUsersLoaded) {
+        populateShiftWageUsers();
+    }
 
     modal.classList.remove('hidden');
 }
@@ -325,55 +354,95 @@ document.getElementById('btn-submit-shift-res')?.addEventListener('click', async
     const qty = parseInt(document.getElementById('modal-shift-res-qty')?.value || 1);
     const cost = parseFloat(document.getElementById('modal-shift-res-cost')?.value || 0);
 
-    if (!itemId) return alert('Please select a consumable to open.');
-    if (cost <= 0) {
-        if (!confirm('Unit cost is Ksh 0. Opening with 0 cost will not track profit accurately. Continue anyway?')) return;
+    const wageToggle = document.getElementById('modal-shift-wage-enable');
+    const wageEnabled = wageToggle && wageToggle.checked;
+    const wageUserSel = document.getElementById('modal-shift-wage-user');
+    const wageUserId = wageUserSel ? wageUserSel.value : null;
+    const wageUserName = wageUserSel && wageUserSel.selectedIndex >= 0 ? wageUserSel.options[wageUserSel.selectedIndex].text.split(' (')[0] : '';
+    const wageAmt = parseFloat(document.getElementById('modal-shift-wage-amt')?.value || 0);
+    const wageMethod = document.getElementById('modal-shift-wage-method')?.value || 'cash';
+    const wageNote = document.getElementById('modal-shift-wage-note')?.value.trim() || 'Shift Wage';
+
+    if (!itemId && !wageEnabled) {
+        return alert('Please select a consumable to open, or check "Record Cashier Daily Wage / Advance" to record morning shift payment.');
+    }
+
+    if (wageEnabled) {
+        if (!wageUserId) return alert('Please select a cashier for the wage payment.');
+        if (isNaN(wageAmt) || wageAmt <= 0) return alert('Please enter a valid wage amount greater than 0.');
+    }
+
+    if (itemId && cost <= 0) {
+        if (!confirm('Consumable unit cost is Ksh 0. Opening with 0 cost will not track profit accurately. Continue anyway?')) return;
     }
 
     const btn = document.getElementById('btn-submit-shift-res');
     btn.disabled = true;
-    btn.textContent = 'Opening...';
+    btn.textContent = 'Saving...';
 
     try {
-        const item = inventory.find(i => i.id === itemId);
-        const unitsInside = item?.units_per_parent || 500;
-        const totalUnits = unitsInside * qty;
-        const totalCost = cost * qty;
+        const todayStr = new Date().toISOString().split('T')[0];
+        const actionsDone = [];
 
-        // 1. Insert into resources
-        const { error: resErr } = await supabase.from('resources').insert([{
-            name: `${name} (${qty}x)`,
-            units: totalUnits,
-            cost: totalCost,
-            status: 'active',
-            opened_at: new Date().toISOString()
-        }]);
-        if (resErr) throw resErr;
+        // 1. Process consumable opening if chosen
+        if (itemId) {
+            const item = inventory.find(i => i.id === itemId);
+            const unitsInside = item?.units_per_parent || 500;
+            const totalUnits = unitsInside * qty;
+            const totalCost = cost * qty;
 
-        // 2. Insert expense
-        await supabase.from('expenses').insert([{
-            description: `[Opened Consumable] ${name} (${qty}x)`,
-            amount: totalCost,
-            timestamp: new Date().toISOString()
-        }]);
+            const { error: resErr } = await supabase.from('resources').insert([{
+                name: `${name} (${qty}x)`,
+                units: totalUnits,
+                cost: totalCost,
+                status: 'active',
+                opened_at: new Date().toISOString()
+            }]);
+            if (resErr) throw resErr;
 
-        // 3. Update stock quantity if fixed product
-        if (item && !item.is_service && typeof item.stock_quantity === 'number') {
-            const newStock = Math.max(0, item.stock_quantity - qty);
-            await supabase.from('inventory').update({ stock_quantity: newStock }).eq('id', itemId);
-            item.stock_quantity = newStock;
+            await supabase.from('expenses').insert([{
+                description: `[Opened Consumable] ${name} (${qty}x)`,
+                amount: totalCost,
+                timestamp: new Date().toISOString()
+            }]);
+
+            if (item && !item.is_service && typeof item.stock_quantity === 'number') {
+                const newStock = Math.max(0, item.stock_quantity - qty);
+                await supabase.from('inventory').update({ stock_quantity: newStock }).eq('id', itemId);
+                item.stock_quantity = newStock;
+            }
+            actionsDone.push(`Opened ${qty}x ${name} (Ksh ${totalCost.toFixed(2)})`);
+        }
+
+        // 2. Process cashier wage payment if enabled
+        if (wageEnabled) {
+            const { error: attErr } = await supabase.from('attendance_log').upsert({
+                user_id: wageUserId,
+                work_date: todayStr,
+                wage_assigned: wageAmt
+            }, { onConflict: 'user_id, work_date' });
+            if (attErr) console.warn('Attendance upsert warning:', attErr);
+
+            const wageDesc = `Wage - ${wageUserName}${wageNote ? ' (' + wageNote + ')' : ''} [${wageMethod.toUpperCase()}]`;
+            await supabase.from('expenses').insert([{
+                description: wageDesc,
+                amount: wageAmt,
+                timestamp: new Date().toISOString()
+            }]);
+            actionsDone.push(`Recorded Cashier Wage of Ksh ${wageAmt.toFixed(2)} to ${wageUserName} via ${wageMethod.toUpperCase()}`);
         }
 
         playSuccessChime();
         sessionStorage.setItem('shift_res_popup_dismissed', '1');
         document.getElementById('modal-shift-consumables')?.classList.add('hidden');
         await checkTodaysOpenedResources();
-        alert(`Successfully opened ${qty}x ${name}! Shift profit is now tracked.`);
+        await fetchTodaysSales();
+        alert(`Morning Shift Record Saved!\n\n• ` + actionsDone.join('\n• '));
     } catch (e) {
-        alert('Error opening consumable: ' + e.message);
+        alert('Error saving shift record: ' + e.message);
     } finally {
         btn.disabled = false;
-        btn.textContent = '☀️ Open Stock & Record';
+        btn.textContent = '☀️ Save Morning Shift Record';
     }
 });
 
@@ -412,7 +481,7 @@ function populateDebtDropdown() {
 }
 
 // ── Feature 3 helper: build Quick Add buttons from is_quick_add flag ──────────
-// ── Online Services Presets & Modal ──────────────────────────────────────────
+// ── Online Services Presets (Reserved for future breakdown module) ───────────
 const ONLINE_SERVICE_PRESETS = [
     { title: 'Good Conduct', cat: 'eCitizen', price: 1050, desc: 'Police Clearance Certificate' },
     { title: 'Driving License Renewal', cat: 'eCitizen', price: 650, desc: 'NTSA eCitizen Renewal' },
@@ -431,101 +500,6 @@ const ONLINE_SERVICE_PRESETS = [
     { title: 'Custom Online Service', cat: 'General', price: 0, desc: 'Other Online Cyber Service' }
 ];
 
-function openOnlineServicesModal() {
-    playPopChime();
-    const modal = document.getElementById('modal-online-services');
-    const grid = document.getElementById('online-srv-presets-grid');
-    if (!modal || !grid) return;
-
-    grid.innerHTML = ONLINE_SERVICE_PRESETS.map((p, idx) => `
-        <div class="preset-card p-3 rounded-xl border border-slate-200 hover:border-blue-500 hover:bg-blue-50/50 cursor-pointer transition flex flex-col justify-between" onclick="selectOnlinePreset(${idx})">
-            <div>
-                <span class="text-[10px] font-black uppercase tracking-wider text-blue-600 block">${p.cat}</span>
-                <span class="font-bold text-xs sm:text-sm text-slate-800 block">${p.title}</span>
-                <span class="text-[11px] text-slate-500 block leading-tight mt-0.5">${p.desc}</span>
-            </div>
-            <div class="mt-2 text-right">
-                <span class="text-xs sm:text-sm font-black text-blue-700">${p.price > 0 ? `Ksh ${p.price}` : 'Variable'}</span>
-            </div>
-        </div>
-    `).join('');
-
-    document.getElementById('online-srv-name-input').value = '';
-    document.getElementById('online-srv-amt-input').value = '';
-    modal.classList.remove('hidden');
-}
-
-window.selectOnlinePreset = (idx) => {
-    const p = ONLINE_SERVICE_PRESETS[idx];
-    if (!p) return;
-    document.getElementById('online-srv-name-input').value = p.title;
-    document.getElementById('online-srv-amt-input').value = p.price > 0 ? p.price : '';
-    document.getElementById('online-srv-amt-input').focus();
-};
-
-document.getElementById('btn-close-online-srv')?.addEventListener('click', () => {
-    document.getElementById('modal-online-services')?.classList.add('hidden');
-});
-
-document.getElementById('btn-online-srv-quick-log')?.addEventListener('click', async () => {
-    const name = document.getElementById('online-srv-name-input').value.trim() || 'Online Service';
-    const amt = parseFloat(document.getElementById('online-srv-amt-input').value || 0);
-    if (!amt || amt <= 0) return alert('Please enter a valid amount.');
-
-    const onlineItem = inventory.find(i => (i.name || '').toUpperCase().includes('ONLINE SERVICE')) 
-        || { id: '5fd6f715-e7eb-4106-a234-d26516f5d987', name: 'ONLINE SERVICE' };
-
-    const btn = document.getElementById('btn-online-srv-quick-log');
-    btn.disabled = true; btn.textContent = 'Logging...';
-
-    try {
-        const _qRes = await insertSaleWithOfflineSupport(supabase, {
-            item_id: onlineItem.id,
-            total_charged: amt,
-            calculated_qty: 1,
-            calculated_profit: amt,
-            cashier_id: currentUser ? currentUser.id : null,
-            payment_method: quickPay.toLowerCase().replace('-', '')
-        });
-
-        playSuccessChime();
-        document.getElementById('modal-online-services').classList.add('hidden');
-        await fetchTodaysSales();
-        alert(`Logged ${name} for Ksh ${amt.toFixed(2)} (${quickPay})!`);
-    } catch (e) {
-        alert('Error: ' + e.message);
-    } finally {
-        btn.disabled = false; btn.textContent = 'Log Sale';
-    }
-});
-
-document.getElementById('btn-online-srv-add-cart')?.addEventListener('click', () => {
-    const name = document.getElementById('online-srv-name-input').value.trim() || 'Online Service';
-    const amt = parseFloat(document.getElementById('online-srv-amt-input').value || 0);
-    if (!amt || amt <= 0) return alert('Please enter a valid amount.');
-
-    const onlineItem = inventory.find(i => (i.name || '').toUpperCase().includes('ONLINE SERVICE')) 
-        || { id: '5fd6f715-e7eb-4106-a234-d26516f5d987', name: 'ONLINE SERVICE' };
-
-    docCart.push({
-        id: onlineItem.id,
-        name: `Online Service - ${name}`,
-        qty: 1,
-        price: amt,
-        total: amt,
-        buying_price: 0,
-        kyocera_pages: 0
-    });
-
-    playPopChime();
-    renderDocCart();
-    document.getElementById('modal-online-services').classList.add('hidden');
-    // If not in a cart mode, switch to receipt mode so cashier sees it
-    if (currentSaleMode === 'direct') {
-        setSaleMode('receipt');
-    }
-});
-
 // ── Feature 3: Smart Quick Add with Best Sellers ────────────────────────────
 async function renderQuickAddButtons() {
     const container = document.getElementById('quick-srv-container');
@@ -537,13 +511,9 @@ async function renderQuickAddButtons() {
         return n === 'print / copy' || n === 'print/copy';
     }) || { id: '637a64d2-1c87-468a-b3d3-37ef914621a8', name: 'Print / Copy', is_service: true, selling_price: 10 };
 
-    // 2. Fixed Button 2: Online Services
-    const onlineItem = {
-        id: '5fd6f715-e7eb-4106-a234-d26516f5d987',
-        name: 'Online Services',
-        isOnlineTrigger: true,
-        icon: '🌐'
-    };
+    // 2. Fixed Button 2: Online Services (Standard Direct Quick Add)
+    const onlineItem = inventory.find(i => (i.name || '').toUpperCase().includes('ONLINE SERVICE'))
+        || { id: '5fd6f715-e7eb-4106-a234-d26516f5d987', name: 'Online Services', is_service: true, type: 'variable', selling_price: 0 };
 
     // 3. Dynamic Slots: Rank top selling items for the week, EXCLUDING Print / Copy & Debt Repayment!
     let dynamicItems = [];
@@ -566,7 +536,7 @@ async function renderQuickAddButtons() {
             const item = inventory.find(i => i.id === id);
             if (!item) continue;
             const lower = (item.name || '').toLowerCase();
-            // Strictly exclude Print/Copy and Debt Repayment as requested
+            // Strictly exclude Print/Copy, Debt Repayment, and Online Services as requested
             if (lower.includes('print') || lower.includes('copy') || lower.includes('debt repayment') || lower.includes('online service')) {
                 continue;
             }
@@ -589,7 +559,7 @@ async function renderQuickAddButtons() {
 
     const allButtons = [
         { ...printItem, isFixedPrint: true, icon: '🖨️' },
-        onlineItem,
+        { ...onlineItem, isOnlineSvc: true, icon: '🌐' },
         ...dynamicItems.map(item => ({ ...item, isDynamicTop: true, icon: '🔥' }))
     ];
 
@@ -598,12 +568,12 @@ async function renderQuickAddButtons() {
     }
 
     container.innerHTML = allButtons.map(item => {
-        const isActive = item.name === activeQuick;
+        const isActive = item.name === activeQuick || (item.isOnlineSvc && activeQuick.toLowerCase().includes('online service'));
         let badgeHtml = '';
         if (item.isFixedPrint) {
             badgeHtml = '<span class="text-[9px] uppercase font-black bg-blue-800 text-blue-100 px-1.5 py-0.5 rounded">Daily</span>';
-        } else if (item.isOnlineTrigger) {
-            badgeHtml = '<span class="text-[9px] uppercase font-black bg-emerald-700 text-emerald-100 px-1.5 py-0.5 rounded">Portal</span>';
+        } else if (item.isOnlineSvc) {
+            badgeHtml = '<span class="text-[9px] uppercase font-black bg-emerald-700 text-emerald-100 px-1.5 py-0.5 rounded">Cyber</span>';
         } else {
             badgeHtml = '<span class="text-[9px] uppercase font-black bg-amber-500/20 text-amber-800 px-1.5 py-0.5 rounded">Top</span>';
         }
@@ -613,7 +583,7 @@ async function renderQuickAddButtons() {
             : 'quick-srv-btn bg-white hover:bg-blue-50 text-slate-800 border-2 border-slate-200 hover:border-blue-300 py-3 px-3.5 rounded-xl text-sm font-bold shadow-sm transition flex items-center justify-between text-left';
 
         return `
-            <button class="${cls}" data-name="${item.name}" data-is-online="${item.isOnlineTrigger ? '1' : '0'}">
+            <button class="${cls}" data-name="${item.name}">
                 <span class="truncate flex items-center gap-1.5"><span>${item.icon}</span> ${item.name}</span>
                 ${badgeHtml}
             </button>
@@ -622,13 +592,8 @@ async function renderQuickAddButtons() {
 
     container.querySelectorAll('.quick-srv-btn').forEach(btn => {
         btn.addEventListener('click', () => {
-            const isOnline = btn.dataset.isOnline === '1';
             const name = btn.dataset.name;
-            if (isOnline) {
-                openOnlineServicesModal();
-            } else {
-                window.setQuickServiceUI(name);
-            }
+            window.setQuickServiceUI(name);
         });
     });
 }
@@ -812,10 +777,12 @@ window.toggleLedgerGroup = (key) => {
 window.setQuickServiceUI = function(name) {
     activeQuick = name;
     document.querySelectorAll('.quick-srv-btn').forEach(b => {
-        if (b.dataset.name === name) {
-            b.className = 'quick-srv-btn bg-blue-600 text-white py-2 rounded text-sm font-medium shadow-sm transition-all';
+        const bName = b.dataset.name;
+        const isMatched = bName === name || (name.toLowerCase().includes('online service') && bName.toLowerCase().includes('online service'));
+        if (isMatched) {
+            b.className = 'quick-srv-btn bg-blue-600 text-white border-2 border-blue-600 py-3 px-3.5 rounded-xl text-sm font-black shadow-md shadow-blue-600/30 transition flex items-center justify-between text-left';
         } else {
-            b.className = 'quick-srv-btn bg-gray-100 text-gray-700 py-2 rounded text-sm font-medium hover:bg-gray-200 transition-all';
+            b.className = 'quick-srv-btn bg-white hover:bg-blue-50 text-slate-800 border-2 border-slate-200 hover:border-blue-300 py-3 px-3.5 rounded-xl text-sm font-bold shadow-sm transition flex items-center justify-between text-left';
         }
     });
     
@@ -826,8 +793,10 @@ window.setQuickServiceUI = function(name) {
     
     if (qtyInput) qtyInput.value = 1;
     
-    const item = inventory.find(i => i.name === name);
-    const isService = item ? (item.is_service === true || item.is_service === 1 || item.is_service === 'true') : true;
+    const isOnline = name.toLowerCase().includes('online service');
+    const item = inventory.find(i => i.name === name || (i.name && i.name.toLowerCase() === name.toLowerCase())) ||
+        (isOnline ? inventory.find(i => (i.name || '').toUpperCase().includes('ONLINE SERVICE')) : null);
+    const isService = isOnline || (item ? (item.is_service === true || item.is_service === 1 || item.is_service === 'true') : true);
 
     if (qtyContainer) {
         if (isService || name === 'Binding Service') {
@@ -856,10 +825,10 @@ window.setQuickServiceUI = function(name) {
             
             // Auto-populate price if recorded in inventory
             if (amountInput) {
-                if (item && item.selling_price > 0) {
+                if (item && item.selling_price > 0 && !isOnline) {
                     amountInput.value = item.selling_price;
                 } else {
-                    amountInput.value = ''; // clear if no fixed price
+                    amountInput.value = ''; // clear if no fixed price or online service
                 }
                 amountInput.focus();
             }
@@ -1087,16 +1056,21 @@ document.getElementById('quick-log-btn').addEventListener('click', async () => {
           // Always deduct linked resources (covers) for any binding job
           await deductBindingMaterials(logQty);
             } else {
-          let item = inventory.find(i => i.name === activeQuick);
+          const isOnline = activeQuick.toLowerCase().includes('online service');
+          let item = inventory.find(i => i.name === activeQuick || (i.name && i.name.toLowerCase() === activeQuick.toLowerCase()));
+          if (!item && isOnline) {
+              item = inventory.find(i => (i.name || '').toUpperCase().includes('ONLINE SERVICE'))
+                  || { id: '5fd6f715-e7eb-4106-a234-d26516f5d987', name: 'ONLINE SERVICE', type: 'variable', selling_price: 0, is_service: true };
+          }
           if (!item) { 
               try {
                   if (navigator.onLine) {
                       const {data} = await supabase.from('inventory').insert([{name: activeQuick, type: 'variable', selling_price: 0, is_service: true}]).select().single(); 
                       item = data; 
                   } else {
-                      item = { id: 	emp- + activeQuick.replace(/\s+/g,'-'), name: activeQuick, type: 'variable', selling_price: 0, is_service: true };
+                      item = { id: 'temp-' + activeQuick.replace(/\s+/g,'-'), name: activeQuick, type: 'variable', selling_price: 0, is_service: true };
                   }
-              } catch(e) { item = { id: 	emp- + activeQuick.replace(/\s+/g,'-'), name: activeQuick, type: 'variable', selling_price: 0, is_service: true }; }
+              } catch(e) { item = { id: 'temp-' + activeQuick.replace(/\s+/g,'-'), name: activeQuick, type: 'variable', selling_price: 0, is_service: true }; }
               inventory.push(item); 
           }
           logItem = item;

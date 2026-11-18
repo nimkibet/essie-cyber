@@ -89,34 +89,38 @@ export function showInAppLowStockBanner(itemName, stockQty, threshold) {
     if (!container) {
         container = document.createElement('div');
         container.id = 'essie-notification-toast-container';
-        container.className = 'fixed top-16 right-3 sm:right-6 z-50 flex flex-col gap-2 max-w-sm pointer-events-none';
+        // Positioned at bottom-right out of the way of all forms, search inputs, and navigation buttons
+        container.className = 'fixed bottom-5 right-5 z-40 flex flex-col gap-2 max-w-sm pointer-events-none transition-all';
         document.body.appendChild(container);
     }
 
     const toast = document.createElement('div');
-    toast.className = 'pointer-events-auto bg-slate-900/95 backdrop-blur border-2 border-blue-500 text-white p-3.5 rounded-2xl shadow-2xl flex items-center gap-3 animate-bounce';
+    toast.className = 'pointer-events-auto bg-slate-900/95 backdrop-blur border-2 border-blue-500 text-white p-3.5 rounded-2xl shadow-2xl flex items-center gap-3 transition-opacity duration-300';
     toast.innerHTML = `
         <span class="w-8 h-8 rounded-xl bg-blue-600/30 text-blue-400 flex items-center justify-center font-black text-sm flex-shrink-0">⚠️</span>
         <div class="flex-1 min-w-0">
             <span class="text-xs font-black text-blue-400 uppercase tracking-wider block">Low Stock Warning</span>
             <span class="text-xs font-bold text-white block truncate">${itemName}</span>
-            <span class="text-[10px] text-slate-300 block">Only ${stockQty} remaining (Min alert: ${threshold || 5}).</span>
+            <span class="text-[10px] text-slate-300 block">Only ${stockQty} remaining (Min: ${threshold || 5}).</span>
         </div>
-        <a href="/inventory.html" class="px-2.5 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-[11px] font-black transition flex-shrink-0">
-            Stock
-        </a>
+        <div class="flex items-center gap-1.5 flex-shrink-0">
+            <a href="/inventory.html" class="px-2.5 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-[11px] font-black transition">
+                Stock
+            </a>
+            <button class="toast-close-btn text-slate-400 hover:text-white px-1.5 py-1 text-sm font-black">&times;</button>
+        </div>
     `;
+
+    toast.querySelector('.toast-close-btn')?.addEventListener('click', () => {
+        toast.remove();
+    });
 
     container.appendChild(toast);
 
     setTimeout(() => {
-        toast.classList.remove('animate-bounce');
-        setTimeout(() => {
-            toast.style.opacity = '0';
-            toast.style.transition = 'opacity 0.5s ease';
-            setTimeout(() => toast.remove(), 500);
-        }, 5000);
-    }, 1200);
+        toast.style.opacity = '0';
+        setTimeout(() => toast.remove(), 400);
+    }, 4500);
 }
 
 export function triggerLowStockNotification(item, threshold = 5) {
@@ -175,8 +179,8 @@ export function triggerLowStockNotification(item, threshold = 5) {
     }
 }
 
-export function checkAndNotifyLowStock(itemsList) {
-    if (!Array.isArray(itemsList)) return;
+export function checkAndNotifyLowStock(itemsList, silentOnLoad = true) {
+    if (!Array.isArray(itemsList)) return [];
     const lowItems = itemsList.filter(i => {
         if (i.is_service) return false;
         const qty = parseFloat(i.stock_quantity);
@@ -184,10 +188,13 @@ export function checkAndNotifyLowStock(itemsList) {
         return !isNaN(qty) && qty <= threshold;
     });
 
-    // Notify up to 2 low stock items at a time to prevent audio overlap
-    lowItems.slice(0, 2).forEach(item => {
-        triggerLowStockNotification(item, item.min_threshold || 5);
-    });
+    // On page reload / initial load, do not spam blocking toasts or chimes!
+    // The top pill indicator displays the exact count cleanly.
+    if (!silentOnLoad) {
+        lowItems.slice(0, 2).forEach(item => {
+            triggerLowStockNotification(item, item.min_threshold || 5);
+        });
+    }
 
     return lowItems;
 }
